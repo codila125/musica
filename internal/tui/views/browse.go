@@ -112,23 +112,29 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 
 func (m BrowseModel) View() string {
 	if m.err != nil {
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Render("Error: " + m.err.Error())
+		return retroPanelStyle.Render(retroErrorStyle.Render("Error: " + m.err.Error()))
 	}
 	if m.loading {
-		return "Loading recent additions..."
+		return retroPanelStyle.Render(retroLoadingStyle.Render("Loading recent additions..."))
 	}
 
-	head := "Recent Additions (enter/p: play, q: queue, r: refresh)"
-	lines := []string{head, strings.Repeat("-", len(head))}
+	head := retroTitleStyle.Render("Recent Additions") + " " + retroSubtleStyle.Render("(enter/p: play, q: queue, r: refresh)")
+	lines := []string{head, retroSubtleStyle.Render(strings.Repeat("-", 56))}
 
 	if len(m.tracks) == 0 {
 		lines = append(lines, "No tracks found", "", m.debug)
-		return strings.Join(lines, "\n")
+		return retroPanelForWidth(m.width).Render(strings.Join(lines, "\n"))
 	}
 
-	maxRows := m.height - 6
-	if maxRows < 8 {
-		maxRows = 20
+	maxRows := 20
+	if m.height > 0 {
+		availableRows := m.height - 10
+		if availableRows < maxRows {
+			maxRows = availableRows
+		}
+	}
+	if maxRows < 5 {
+		maxRows = 5
 	}
 
 	start := 0
@@ -142,22 +148,22 @@ func (m BrowseModel) View() string {
 
 	for i := start; i < end; i++ {
 		t := m.tracks[i]
-		prefix := "  "
+		prefix := retroSubtleStyle.Render("  ")
 		if i == m.cursor {
-			prefix = "> "
+			prefix = retroSelectedStyle.Render(">> ")
 		}
-		lines = append(lines, fmt.Sprintf("%s%s - %s", prefix, t.Title, t.Artist))
+		lines = append(lines, fmt.Sprintf("%s%s %s", prefix, t.Title, retroSubtleStyle.Render("- "+t.Artist)))
 	}
 
 	if m.debug != "" {
 		lines = append(lines, "", lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(m.debug))
 	}
 
-	return strings.Join(lines, "\n")
+	return retroPanelForWidth(m.width).Render(strings.Join(lines, "\n"))
 }
 
 func (m BrowseModel) loadRecentTracks() tea.Msg {
-	tracks, err := m.apiClient.GetRecentTracks(context.Background(), 200)
+	tracks, err := m.apiClient.GetRecentTracks(context.Background(), 20)
 	if err != nil {
 		return err
 	}

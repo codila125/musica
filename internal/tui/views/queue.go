@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/codila125/musica/internal/models"
 	"github.com/codila125/musica/internal/player"
@@ -68,30 +67,39 @@ func (m QueueModel) View() string {
 	current := m.player.CurrentIndex()
 
 	if queue == nil || len(queue) == 0 {
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("Queue is empty")
+		return retroPanelForWidth(m.width).Render(retroSubtleStyle.Render("Queue is empty"))
 	}
 
-	var lines []string
+	lines := []string{
+		retroTitleStyle.Render("Tape Queue") + " " + retroSubtleStyle.Render("(enter/p: play-pause, j/k: move)"),
+		retroSubtleStyle.Render(strings.Repeat("-", 56)),
+	}
 	for i, t := range queue {
-		prefix := "  "
+		prefix := retroSubtleStyle.Render("  ")
 		if i == current {
-			prefix = "> "
+			prefix = retroCurrentStyle.Render("** ")
 		} else if i == m.cursor && i != current {
-			prefix = "> "
+			prefix = retroSelectedStyle.Render(">> ")
 		} else {
-			prefix = "  "
+			prefix = retroSubtleStyle.Render("  ")
 		}
 
 		min := t.Duration / 60
 		sec := t.Duration % 60
-		line := fmt.Sprintf("%s%d. %s - %s (%d:%02d)", prefix, i+1, t.Title, t.Artist, min, sec)
+		line := fmt.Sprintf("%s%02d %s %s %s", prefix, i+1, t.Title, retroSubtleStyle.Render("- "+t.Artist), retroSubtleStyle.Render(fmt.Sprintf("(%d:%02d)", min, sec)))
 		lines = append(lines, line)
 	}
 
 	start := 0
-	visibleRows := m.height - 3
-	if visibleRows < 1 {
-		visibleRows = len(lines)
+	visibleRows := 20
+	if m.height > 0 {
+		availableRows := m.height - 10
+		if availableRows < visibleRows {
+			visibleRows = availableRows
+		}
+	}
+	if visibleRows < 5 {
+		visibleRows = 5
 	}
 
 	if m.cursor > visibleRows-1 {
@@ -112,5 +120,5 @@ func (m QueueModel) View() string {
 		end = start
 	}
 
-	return lipgloss.NewStyle().Render(strings.Join(lines[start:end], "\n"))
+	return retroPanelForWidth(m.width).Render(strings.Join(lines[start:end], "\n"))
 }

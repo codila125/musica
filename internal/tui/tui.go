@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -43,8 +44,28 @@ type Model struct {
 }
 
 var (
-	tabStyle       = lipgloss.NewStyle().Padding(0, 2).Foreground(lipgloss.Color("240"))
-	activeTabStyle = lipgloss.NewStyle().Padding(0, 2).Foreground(lipgloss.Color("255")).Bold(true)
+	frameStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("99")).
+			Foreground(lipgloss.Color("230")).
+			Background(lipgloss.Color("0")).
+			Padding(0, 1)
+	tapeTabRaisedStyle = lipgloss.NewStyle().
+				Border(lipgloss.NormalBorder()).
+				BorderForeground(lipgloss.Color("250")).
+				Foreground(lipgloss.Color("248")).
+				Background(lipgloss.Color("238")).
+				Align(lipgloss.Center)
+	tapeTabPressedStyle = lipgloss.NewStyle().
+				Border(lipgloss.NormalBorder()).
+				BorderForeground(lipgloss.Color("240")).
+				Foreground(lipgloss.Color("223")).
+				Background(lipgloss.Color("234")).
+				Align(lipgloss.Center)
+	tapeLedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("220")).Bold(true)
+	statusStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("46")).Bold(true)
+	hintStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	nowStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("51"))
 )
 
 type switchServerMsg struct {
@@ -139,9 +160,9 @@ func (m Model) View() string {
 	}
 
 	tabBar := m.renderTabBar()
-	footer := ""
+	footerLines := []string{hintStyle.Render("keys: tab shift+tab switch views | s switch server | ctrl+q quit")}
 	if len(m.servers) > 0 {
-		footer = fmt.Sprintf("\n[%s] tab: switch views, s: switch server, ctrl+q: quit", m.servers[m.currentServer].Name)
+		footerLines = append(footerLines, statusStyle.Render("source: "+m.servers[m.currentServer].Name))
 		if track := m.player.CurrentTrack(); track != nil {
 			state := "stopped"
 			switch m.player.State() {
@@ -150,25 +171,89 @@ func (m Model) View() string {
 			case models.StatePaused:
 				state = "paused"
 			}
-			footer += fmt.Sprintf("\nNow: %s - %s | state=%s | source=%s", track.Title, track.Artist, state, m.servers[m.currentServer].Name)
+			footerLines = append(footerLines, nowStyle.Render(fmt.Sprintf("now spinning: %s - %s | state=%s", track.Title, track.Artist, state)))
 		}
 		if m.status != "" {
-			footer += "\n" + m.status
+			footerLines = append(footerLines, hintStyle.Render("status: "+m.status))
 		}
 	}
-	return tabBar + "\n" + content + footer
+	body := strings.Join([]string{tabBar, content, strings.Join(footerLines, "\n")}, "\n\n")
+
+	containerStyle := frameStyle.Copy()
+	hFrame := containerStyle.GetHorizontalFrameSize()
+	vFrame := containerStyle.GetVerticalFrameSize()
+	bodyStyle := lipgloss.NewStyle()
+
+	if m.width > 0 {
+		containerStyle = containerStyle.Width(m.width)
+		innerWidth := m.width - hFrame
+		if innerWidth < 1 {
+			innerWidth = 1
+		}
+		bodyStyle = bodyStyle.Width(innerWidth).MaxWidth(innerWidth)
+	}
+	if m.height > 0 {
+		containerStyle = containerStyle.Height(m.height)
+		innerHeight := m.height - vFrame
+		if innerHeight < 1 {
+			innerHeight = 1
+		}
+		bodyStyle = bodyStyle.Height(innerHeight).MaxHeight(innerHeight)
+	}
+
+	body = bodyStyle.Render(body)
+	return containerStyle.Render(body)
 }
 
 func (m Model) renderTabBar() string {
-	tabs := make([]string, len(m.tabs))
+	header := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true).Render("MUSICA :: RETRO DECK")
+
+	totalWidth := 48
+	if m.width > 0 {
+		totalWidth = m.width - frameStyle.GetHorizontalFrameSize()
+	}
+	if totalWidth < 18 {
+		totalWidth = 18
+	}
+
+	tabCount := len(m.tabs)
+	baseSegmentWidth := totalWidth / tabCount
+	remainder := totalWidth % tabCount
+	tabs := make([]string, tabCount)
+
 	for i, t := range m.tabs {
+		segmentWidth := baseSegmentWidth
+		if i < remainder {
+			segmentWidth++
+		}
+		innerWidth := segmentWidth - 2
+		if innerWidth < 1 {
+			innerWidth = 1
+		}
+
+		label := strings.ToUpper(t)
+		if innerWidth <= 7 {
+			short := []string{"BRW", "SRCH", "QUE"}
+			if i < len(short) {
+				label = short[i]
+			}
+		}
+		if innerWidth <= 4 {
+			label = string(label[0])
+		}
+
 		if Tab(i) == m.activeTab {
-			tabs[i] = activeTabStyle.Render("> " + t)
+			text := label
+			if innerWidth >= 6 {
+				text = tapeLedStyle.Render("●") + " " + label
+			}
+			tabs[i] = tapeTabPressedStyle.Copy().Width(innerWidth).Render(text)
 		} else {
-			tabs[i] = tabStyle.Render(t)
+			tabs[i] = tapeTabRaisedStyle.Copy().Width(innerWidth).Render(label)
 		}
 	}
-	return lipgloss.JoinHorizontal(lipgloss.Top, tabs...)
+
+	return header + "\n" + lipgloss.JoinHorizontal(lipgloss.Top, tabs...)
 }
 
 func (m Model) switchServerCmd(index int) tea.Cmd {

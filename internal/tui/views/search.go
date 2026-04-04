@@ -8,7 +8,6 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/codila125/musica/internal/api"
 	"github.com/codila125/musica/internal/models"
@@ -167,26 +166,27 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 
 func (m SearchModel) View() string {
 	if m.err != nil {
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Render(fmt.Sprintf("Error: %v", m.err))
+		return retroPanelForWidth(m.width).Render(retroErrorStyle.Render(fmt.Sprintf("Error: %v", m.err)))
 	}
 
 	if m.state == SearchInput {
-		return m.input.View()
+		header := retroTitleStyle.Render("Search Deck") + " " + retroSubtleStyle.Render("(type and press enter)")
+		return retroPanelForWidth(m.width).Render(header + "\n" + retroSubtleStyle.Render(strings.Repeat("-", 56)) + "\n" + m.input.View())
 	}
 
 	if m.loading {
-		return m.spinner.View() + " Searching..."
+		return retroPanelForWidth(m.width).Render(retroLoadingStyle.Render(m.spinner.View() + " Searching..."))
 	}
 
 	var content string
 	types := []string{"Tracks", "Albums", "Artists"}
 
 	for i, t := range types {
-		style := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+		style := retroSubtleStyle
 		if i == m.resultType {
-			style = lipgloss.NewStyle().Foreground(lipgloss.Color("255")).Bold(true)
+			style = retroSelectedStyle
 		}
-		content += style.Render(t) + "  "
+		content += style.Render("["+t+"]") + " "
 	}
 	content += "\n\n"
 
@@ -199,7 +199,8 @@ func (m SearchModel) View() string {
 		content += m.renderArtists()
 	}
 
-	return content
+	header := retroTitleStyle.Render("Search Results") + " " + retroSubtleStyle.Render("(tab: category, q: queue)")
+	return retroPanelForWidth(m.width).Render(header + "\n" + retroSubtleStyle.Render(strings.Repeat("-", 56)) + "\n" + content)
 }
 
 func (m SearchModel) search(query string) tea.Cmd {
@@ -251,17 +252,18 @@ func (m SearchModel) renderTracks() string {
 
 	var lines []string
 	for i, t := range m.results.Tracks {
-		prefix := "  "
+		prefix := retroSubtleStyle.Render("  ")
 		if i == m.cursor {
-			prefix = "> "
+			prefix = retroSelectedStyle.Render(">> ")
 		}
 		min := t.Duration / 60
 		sec := t.Duration % 60
-		lines = append(lines, fmt.Sprintf("%s%s - %s (%d:%02d)", prefix, t.Title, t.Artist, min, sec))
+		lines = append(lines, fmt.Sprintf("%s%s %s %s", prefix, t.Title, retroSubtleStyle.Render("- "+t.Artist), retroSubtleStyle.Render(fmt.Sprintf("(%d:%02d)", min, sec))))
 	}
 
-	visible := lines[:min(len(lines), m.height-6)]
-	return lipgloss.NewStyle().Render(strings.Join(visible, "\n"))
+	visibleCount := m.visibleRows()
+	visible := lines[:min(len(lines), visibleCount)]
+	return strings.Join(visible, "\n")
 }
 
 func (m SearchModel) renderAlbums() string {
@@ -271,15 +273,16 @@ func (m SearchModel) renderAlbums() string {
 
 	var lines []string
 	for i, a := range m.results.Albums {
-		prefix := "  "
+		prefix := retroSubtleStyle.Render("  ")
 		if i == m.cursor {
-			prefix = "> "
+			prefix = retroSelectedStyle.Render(">> ")
 		}
-		lines = append(lines, fmt.Sprintf("%s%s - %s", prefix, a.Name, a.Artist))
+		lines = append(lines, fmt.Sprintf("%s%s %s", prefix, a.Name, retroSubtleStyle.Render("- "+a.Artist)))
 	}
 
-	visible := lines[:min(len(lines), m.height-6)]
-	return lipgloss.NewStyle().Render(strings.Join(visible, "\n"))
+	visibleCount := m.visibleRows()
+	visible := lines[:min(len(lines), visibleCount)]
+	return strings.Join(visible, "\n")
 }
 
 func (m SearchModel) renderArtists() string {
@@ -289,15 +292,30 @@ func (m SearchModel) renderArtists() string {
 
 	var lines []string
 	for i, a := range m.results.Artists {
-		prefix := "  "
+		prefix := retroSubtleStyle.Render("  ")
 		if i == m.cursor {
-			prefix = "> "
+			prefix = retroSelectedStyle.Render(">> ")
 		}
 		lines = append(lines, fmt.Sprintf("%s%s", prefix, a.Name))
 	}
 
-	visible := lines[:min(len(lines), m.height-6)]
-	return lipgloss.NewStyle().Render(strings.Join(visible, "\n"))
+	visibleCount := m.visibleRows()
+	visible := lines[:min(len(lines), visibleCount)]
+	return strings.Join(visible, "\n")
+}
+
+func (m SearchModel) visibleRows() int {
+	rows := 20
+	if m.height > 0 {
+		availableRows := m.height - 12
+		if availableRows < rows {
+			rows = availableRows
+		}
+	}
+	if rows < 5 {
+		rows = 5
+	}
+	return rows
 }
 
 func min(a, b int) int {
