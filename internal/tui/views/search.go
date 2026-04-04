@@ -148,6 +148,16 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 				if m.cursor < count-1 {
 					m.cursor++
 				}
+			case "q":
+				if m.resultType == 0 && len(m.results.Tracks) > 0 && m.cursor < len(m.results.Tracks) {
+					track := m.results.Tracks[m.cursor]
+					if err := m.player.AppendToQueue(track); err != nil {
+						m.err = fmt.Errorf("queue: %w", err)
+					} else {
+						m.err = nil
+						m.input.Placeholder = "Queued: " + track.Title
+					}
+				}
 			}
 		}
 	}

@@ -72,7 +72,7 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 						m.debug = "Resumed"
 					}
 				} else {
-					if err := m.player.PlayQueue(m.tracks, m.cursor); err != nil {
+					if err := m.player.Play(m.tracks[m.cursor]); err != nil {
 						m.err = fmt.Errorf("play: %w", err)
 					} else {
 						m.err = nil
@@ -83,6 +83,15 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 		case "r":
 			m.loading = true
 			return m, m.loadRecentTracks
+		case "q":
+			if len(m.tracks) > 0 {
+				if err := m.player.AppendToQueue(m.tracks[m.cursor]); err != nil {
+					m.err = fmt.Errorf("queue: %w", err)
+				} else {
+					m.err = nil
+					m.debug = "Queued: " + m.tracks[m.cursor].Title
+				}
+			}
 		}
 
 	case []models.Track:
@@ -109,7 +118,7 @@ func (m BrowseModel) View() string {
 		return "Loading recent additions..."
 	}
 
-	head := "Recent Additions (enter/p: play, r: refresh)"
+	head := "Recent Additions (enter/p: play, q: queue, r: refresh)"
 	lines := []string{head, strings.Repeat("-", len(head))}
 
 	if len(m.tracks) == 0 {

@@ -42,12 +42,12 @@ func (m QueueModel) Update(msg tea.Msg) (QueueModel, tea.Cmd) {
 			}
 		case "down", "j":
 			queue := m.player.Queue()
-			if m.cursor < len(queue)-1 {
+			if queue != nil && m.cursor < len(queue)-1 {
 				m.cursor++
 			}
 		case "enter", "p":
 			queue := m.player.Queue()
-			if m.cursor < len(queue) {
+			if queue != nil && m.cursor < len(queue) {
 				cur := m.player.CurrentTrack()
 				if cur != nil && cur.ID == queue[m.cursor].ID && m.player.State() == models.StatePlaying {
 					_ = m.player.Pause()
@@ -67,7 +67,7 @@ func (m QueueModel) View() string {
 	queue := m.player.Queue()
 	current := m.player.CurrentIndex()
 
-	if len(queue) == 0 {
+	if queue == nil || len(queue) == 0 {
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("Queue is empty")
 	}
 
@@ -75,9 +75,11 @@ func (m QueueModel) View() string {
 	for i, t := range queue {
 		prefix := "  "
 		if i == current {
-			prefix = "▶ "
-		} else if i == m.cursor {
 			prefix = "> "
+		} else if i == m.cursor && i != current {
+			prefix = "> "
+		} else {
+			prefix = "  "
 		}
 
 		min := t.Duration / 60

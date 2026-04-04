@@ -203,6 +203,11 @@ func (p *Player) Next() error {
 	}
 
 	if p.current >= len(p.queue)-1 {
+		p.queue = nil
+		p.current = 0
+		p.pausedPos = 0
+		p.state = models.StateStopped
+		_ = p.mpv.Command([]string{"stop"})
 		return fmt.Errorf("end of queue")
 	}
 
@@ -317,6 +322,48 @@ func (p *Player) Queue() []models.Track {
 	return p.queue
 }
 
+func (p *Player) QueueHistory() []models.Track {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if len(p.queue) == 0 {
+		return nil
+	}
+
+	maxIdx := p.current
+	if maxIdx < 0 {
+		maxIdx = 0
+	}
+	if maxIdx >= len(p.queue) {
+		maxIdx = len(p.queue) - 1
+	}
+
+	return p.queue[:maxIdx+1]
+}
+
+func (p *Player) AppendToQueue(track models.Track) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if track.StreamURL == "" {
+		return fmt.Errorf("empty stream URL for track: %s", track.Title)
+	}
+
+	p.queue = append(p.queue, track)
+
+	if p.state == models.StateStopped {
+		p.current = len(p.queue) - 1
+		p.pausedPos = 0
+		if err := p.mpv.Command([]string{"loadfile", track.StreamURL, "replace"}); err != nil {
+			return fmt.Errorf("loadfile: %w", err)
+		}
+		p.mpv.SetPropertyString("pause", "no")
+		p.state = models.StatePlaying
+	}
+
+	return nil
+}
+
 func (p *Player) CurrentIndex() int {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -351,6 +398,9 @@ func (p *Player) Monitor(onTrackEnd func()) {
 				p.mpv.SetPropertyString("pause", "no")
 				p.state = models.StatePlaying
 			} else {
+				p.queue = nil
+				p.current = 0
+				p.pausedPos = 0
 				p.state = models.StateStopped
 			}
 			p.mu.Unlock()

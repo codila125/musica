@@ -95,7 +95,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, key.NewBinding(key.WithKeys("shift+tab"))):
 			m.activeTab = (m.activeTab - 1 + Tab(len(m.tabs))) % Tab(len(m.tabs))
 			return m, nil
-		case key.Matches(msg, key.NewBinding(key.WithKeys("ctrl+c", "q"))):
+		case key.Matches(msg, key.NewBinding(key.WithKeys("ctrl+c", "ctrl+q"))):
 			return m, tea.Quit
 		}
 
@@ -141,7 +141,7 @@ func (m Model) View() string {
 	tabBar := m.renderTabBar()
 	footer := ""
 	if len(m.servers) > 0 {
-		footer = fmt.Sprintf("\n[%s] tab: switch views, s: switch server, q: quit", m.servers[m.currentServer].Name)
+		footer = fmt.Sprintf("\n[%s] tab: switch views, s: switch server, ctrl+q: quit", m.servers[m.currentServer].Name)
 		if track := m.player.CurrentTrack(); track != nil {
 			state := "stopped"
 			switch m.player.State() {

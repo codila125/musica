@@ -144,6 +144,7 @@ func runPlayer(serverName string) {
 	if err != nil {
 		log.Fatalf("Failed to initialize player: %v", err)
 	}
+	go pl.Monitor(nil)
 
 	currentServer := 0
 	for i, s := range cfg.Servers {
