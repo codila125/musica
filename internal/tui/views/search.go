@@ -237,6 +237,8 @@ func (m SearchModel) renderResultsView(boxStyle lipgloss.Style, w, h int) string
 	divider := retroCassetteStyle.Render(strings.Repeat("─", w-8))
 	keys := retroSubtleStyle.Render("[tab]category [p]lay [q]ueue [esc]back")
 
+	innerW := w - 8
+
 	// Category tabs
 	types := []string{"TRACKS", "ALBUMS", "ARTISTS"}
 	var tabs []string
@@ -253,11 +255,11 @@ func (m SearchModel) renderResultsView(boxStyle lipgloss.Style, w, h int) string
 	var resultContent string
 	switch m.resultType {
 	case 0:
-		resultContent = m.renderTracks(w, h)
+		resultContent = m.renderTracks(innerW, h)
 	case 1:
-		resultContent = m.renderAlbums(w, h)
+		resultContent = m.renderAlbums(innerW, h)
 	case 2:
-		resultContent = m.renderArtists(w, h)
+		resultContent = m.renderArtists(innerW, h)
 	}
 
 	content := lipgloss.JoinVertical(lipgloss.Left,

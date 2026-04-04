@@ -119,7 +119,8 @@ func (m QueueModel) View() string {
 	lines := []string{title, divider}
 
 	// Column headers
-	nameW := w - 91
+	innerW := w - 8
+	nameW := innerW - 91
 	if nameW < 10 {
 		nameW = 10
 	}
