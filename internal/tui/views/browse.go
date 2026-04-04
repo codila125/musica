@@ -24,6 +24,13 @@ type BrowseModel struct {
 	height  int
 	loading bool
 	err     error
+	loadSeq int
+}
+
+type browseTracksMsg struct {
+	id     int
+	tracks []models.Track
+	err    error
 }
 
 func NewBrowseModel(client api.Client, pl *player.Player) BrowseModel {
@@ -31,11 +38,12 @@ func NewBrowseModel(client api.Client, pl *player.Player) BrowseModel {
 		apiClient: client,
 		player:    pl,
 		loading:   true,
+		loadSeq:   1,
 	}
 }
 
 func (m BrowseModel) Init() tea.Cmd {
-	return m.loadRecentTracks
+	return m.loadRecentTracksCmd(m.loadSeq)
 }
 
 func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
@@ -78,8 +86,7 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 				}
 			}
 		case "r":
-			m.loading = true
-			return m, m.loadRecentTracks
+			return m.beginLoadRecentTracks()
 		case "q":
 			if len(m.tracks) > 0 {
 				if err := m.player.AppendToQueue(m.tracks[m.cursor]); err != nil {
@@ -90,15 +97,18 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 			}
 		}
 
-	case []models.Track:
-		m.tracks = msg
+	case browseTracksMsg:
+		if msg.id != m.loadSeq {
+			return m, nil
+		}
+		m.loading = false
+		if msg.err != nil {
+			m.err = msg.err
+			return m, nil
+		}
+		m.tracks = msg.tracks
 		m.cursor = 0
-		m.loading = false
 		m.err = nil
-
-	case error:
-		m.loading = false
-		m.err = msg
 	}
 
 	return m, nil
@@ -251,12 +261,21 @@ func (m BrowseModel) renderCompactCassette() string {
 	return cassette
 }
 
-func (m BrowseModel) loadRecentTracks() tea.Msg {
-	tracks, err := m.apiClient.GetRecentTracks(context.Background(), 50)
-	if err != nil {
-		return err
+func (m BrowseModel) beginLoadRecentTracks() (BrowseModel, tea.Cmd) {
+	m.loadSeq++
+	m.loading = true
+	m.err = nil
+	return m, m.loadRecentTracksCmd(m.loadSeq)
+}
+
+func (m BrowseModel) loadRecentTracksCmd(id int) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		tracks, err := m.apiClient.GetRecentTracks(ctx, 50)
+		return browseTracksMsg{id: id, tracks: tracks, err: err}
 	}
-	return tracks
 }
 
 // Helper functions

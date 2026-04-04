@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -35,6 +36,13 @@ type SearchModel struct {
 	height     int
 	cursor     int
 	resultType int
+	searchSeq  int
+}
+
+type searchResultsMsg struct {
+	id     int
+	result models.SearchResult
+	err    error
 }
 
 func NewSearchModel(client api.Client, pl *player.Player) SearchModel {
@@ -53,6 +61,7 @@ func NewSearchModel(client api.Client, pl *player.Player) SearchModel {
 		input:     ti,
 		spinner:   s,
 		state:     SearchInput,
+		searchSeq: 1,
 	}
 }
 
@@ -78,9 +87,12 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 			if m.state == SearchInput {
 				query := m.input.Value()
 				if query != "" {
+					m.searchSeq++
 					m.loading = true
+					m.err = nil
 					m.state = SearchResults
-					return m, m.search(query)
+					m.cursor = 0
+					return m, m.search(m.searchSeq, query)
 				}
 			} else if m.state == SearchResults {
 				return m.handlePlay(), nil
@@ -112,16 +124,19 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 		m.spinner, cmd = m.spinner.Update(msg)
 		cmds = append(cmds, cmd)
 
-	case models.SearchResult:
-		m.results = msg
+	case searchResultsMsg:
+		if msg.id != m.searchSeq {
+			return m, tea.Batch(cmds...)
+		}
 		m.loading = false
+		if msg.err != nil {
+			m.err = msg.err
+			return m, tea.Batch(cmds...)
+		}
+		m.results = msg.result
 		m.state = SearchResults
 		m.resultType = 0
 		m.cursor = 0
-
-	case error:
-		m.err = msg
-		m.loading = false
 	}
 
 	var cmd tea.Cmd
@@ -262,13 +277,13 @@ func (m SearchModel) renderResultsView(boxStyle lipgloss.Style, w, h int) string
 	return boxStyle.Render(content)
 }
 
-func (m SearchModel) search(query string) tea.Cmd {
+func (m SearchModel) search(id int, query string) tea.Cmd {
 	return func() tea.Msg {
-		result, err := m.apiClient.Search(context.Background(), query)
-		if err != nil {
-			return err
-		}
-		return result
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		result, err := m.apiClient.Search(ctx, query)
+		return searchResultsMsg{id: id, result: result, err: err}
 	}
 }
 

@@ -43,6 +43,7 @@ type Model struct {
 	width         int
 	height        int
 	blinkOn       bool
+	switching     bool
 }
 
 // Colors
@@ -153,9 +154,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, key.NewBinding(key.WithKeys("s"))):
+			if m.switching {
+				return m, nil
+			}
 			if len(m.servers) > 1 {
 				next := (m.currentServer + 1) % len(m.servers)
 				m.status = fmt.Sprintf("Switching to %s...", m.servers[next].Name)
+				m.switching = true
 				return m, m.switchServerCmd(next)
 			}
 			return m, nil
@@ -170,6 +175,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case switchServerMsg:
+		m.switching = false
 		if msg.err != nil {
 			m.status = "Server switch failed: " + msg.err.Error()
 			return m, nil
