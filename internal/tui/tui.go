@@ -181,6 +181,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.browse = views.NewBrowseModel(m.apiClient, m.player)
 		m.search = views.NewSearchModel(m.apiClient, m.player)
 		m.queue = views.NewQueueModel(m.player)
+
+		// Keep layout consistent after server switch by reapplying current size.
+		innerW := m.width - mainFrameStyle.GetHorizontalFrameSize() - 2
+		innerH := m.height - mainFrameStyle.GetVerticalFrameSize() - 10
+		if innerW < 20 {
+			innerW = 20
+		}
+		if innerH < 8 {
+			innerH = 8
+		}
+		childSize := tea.WindowSizeMsg{Width: innerW, Height: innerH}
+		m.browse, _ = m.browse.Update(childSize)
+		m.search, _ = m.search.Update(childSize)
+		m.queue, _ = m.queue.Update(childSize)
+
 		return m, tea.Batch(m.browse.Init(), m.search.Init(), m.queue.Init())
 	}
 
