@@ -18,13 +18,14 @@ type BrowseModel struct {
 	apiClient api.Client
 	player    PlayerService
 
-	tracks    []models.Track
-	cursor    int
-	width     int
-	height    int
-	loading   bool
-	err       error
-	loadReqID int64
+	tracks     []models.Track
+	cursor     int
+	width      int
+	height     int
+	loading    bool
+	err        error
+	loadReqID  int64
+	cancelLoad context.CancelFunc
 }
 
 type browseTracksMsg struct {
@@ -107,6 +108,10 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 		}
 
 	case cancelInFlightMsg:
+		if m.cancelLoad != nil {
+			m.cancelLoad()
+			m.cancelLoad = nil
+		}
 		m.loadReqID = nextRequestID()
 		m.loading = false
 
@@ -114,6 +119,7 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 		if msg.id != m.loadReqID {
 			return m, nil
 		}
+		m.cancelLoad = nil
 		m.loading = false
 		if msg.err != nil {
 			m.err = msg.err
@@ -275,10 +281,18 @@ func (m BrowseModel) renderCompactCassette() string {
 }
 
 func (m BrowseModel) beginLoadRecentTracks() (BrowseModel, tea.Cmd) {
+	if m.cancelLoad != nil {
+		m.cancelLoad()
+		m.cancelLoad = nil
+	}
+
 	m.loadReqID = nextRequestID()
 	m.loading = true
 	m.err = nil
-	return m, m.loadRecentTracksCmd(m.loadReqID)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	m.cancelLoad = cancel
+	return m, m.loadRecentTracksCmdWithContext(m.loadReqID, ctx)
 }
 
 func (m BrowseModel) loadRecentTracksCmd(id int64) tea.Cmd {
@@ -286,6 +300,13 @@ func (m BrowseModel) loadRecentTracksCmd(id int64) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
+		tracks, err := m.apiClient.GetRecentTracks(ctx, 50)
+		return browseTracksMsg{id: id, tracks: tracks, err: err}
+	}
+}
+
+func (m BrowseModel) loadRecentTracksCmdWithContext(id int64, ctx context.Context) tea.Cmd {
+	return func() tea.Msg {
 		tracks, err := m.apiClient.GetRecentTracks(ctx, 50)
 		return browseTracksMsg{id: id, tracks: tracks, err: err}
 	}

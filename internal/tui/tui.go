@@ -114,11 +114,12 @@ func NewModel(client api.Client, pl *player.Player, servers []config.ServerConfi
 		browse:        views.NewBrowseModel(client, pl),
 		search:        views.NewSearchModel(client, pl),
 		queue:         views.NewQueueModel(pl),
-		state:         stateReady,
+		state:         stateBooting,
 	}
 }
 
 func (m Model) Init() tea.Cmd {
+	m.state = stateLoading
 	return tea.Batch(m.browse.Init(), m.search.Init(), m.queue.Init(), uiTickCmd())
 }
 
@@ -176,8 +177,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case switchServerMsg:
-		m.state = stateReady
+		m.state = stateLoading
 		if msg.err != nil {
+			m.state = stateError
 			switch api.KindOf(msg.err) {
 			case api.ErrorKindAuth:
 				m.status = "Server switch failed: authentication error"
@@ -224,6 +226,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.search, _ = m.search.Update(childSize)
 		m.queue, _ = m.queue.Update(childSize)
 
+		m.state = stateReady
 		return m, tea.Batch(m.browse.Init(), m.search.Init(), m.queue.Init())
 	}
 

@@ -3,6 +3,9 @@ package tui
 type appState int
 
 const (
-	stateReady appState = iota
+	stateBooting appState = iota
+	stateReady
+	stateLoading
 	stateSwitchingServer
+	stateError
 )

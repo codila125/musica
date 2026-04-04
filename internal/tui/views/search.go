@@ -24,19 +24,20 @@ const (
 )
 
 type SearchModel struct {
-	apiClient   api.Client
-	player      PlayerService
-	input       textinput.Model
-	spinner     spinner.Model
-	state       SearchState
-	results     models.SearchResult
-	loading     bool
-	err         error
-	width       int
-	height      int
-	cursor      int
-	resultType  int
-	searchReqID int64
+	apiClient    api.Client
+	player       PlayerService
+	input        textinput.Model
+	spinner      spinner.Model
+	state        SearchState
+	results      models.SearchResult
+	loading      bool
+	err          error
+	width        int
+	height       int
+	cursor       int
+	resultType   int
+	searchReqID  int64
+	cancelSearch context.CancelFunc
 }
 
 type searchResultsMsg struct {
@@ -107,12 +108,24 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 			if m.state == SearchInput {
 				query := m.input.Value()
 				if query != "" {
+					if m.cancelSearch != nil {
+						m.cancelSearch()
+						m.cancelSearch = nil
+					}
+
 					m.searchReqID = nextRequestID()
 					m.loading = true
 					m.err = nil
 					m.state = SearchResults
 					m.cursor = 0
-					return m, m.search(m.searchReqID, query)
+
+					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+					m.cancelSearch = cancel
+					id := m.searchReqID
+					return m, func() tea.Msg {
+						result, err := m.apiClient.Search(ctx, query)
+						return searchResultsMsg{id: id, result: result, err: err}
+					}
 				}
 			} else if m.state == SearchResults {
 				return m.handlePlay(), nil
@@ -140,6 +153,10 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 		}
 
 	case cancelInFlightMsg:
+		if m.cancelSearch != nil {
+			m.cancelSearch()
+			m.cancelSearch = nil
+		}
 		m.searchReqID = nextRequestID()
 		m.loading = false
 
@@ -152,6 +169,7 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 		if msg.id != m.searchReqID {
 			return m, tea.Batch(cmds...)
 		}
+		m.cancelSearch = nil
 		m.loading = false
 		if msg.err != nil {
 			m.err = msg.err
@@ -299,16 +317,6 @@ func (m SearchModel) renderResultsView(boxStyle lipgloss.Style, w, h int) string
 		keys,
 	)
 	return boxStyle.Render(content)
-}
-
-func (m SearchModel) search(id int64, query string) tea.Cmd {
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		result, err := m.apiClient.Search(ctx, query)
-		return searchResultsMsg{id: id, result: result, err: err}
-	}
 }
 
 func (m SearchModel) handlePlay() SearchModel {
