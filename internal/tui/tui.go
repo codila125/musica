@@ -275,7 +275,7 @@ func (m Model) View() string {
 	)
 
 	// Apply main frame to fill terminal
-	frame := mainFrameStyle.Copy().
+	frame := mainFrameStyle.
 		Width(w).
 		Height(h)
 
@@ -305,7 +305,7 @@ func (m Model) renderTabBar(w int) string {
 
 		if Tab(i) == m.activeTab {
 			// Active tab with blinking red LED
-			style = tabButtonActiveStyle.Copy().Width(tabW)
+			style = tabButtonActiveStyle.Width(tabW)
 			if m.blinkOn {
 				style = style.BorderForeground(colorRed).Foreground(colorRed)
 				label = "● " + name
@@ -315,7 +315,7 @@ func (m Model) renderTabBar(w int) string {
 			}
 		} else {
 			// Inactive tab is static
-			style = tabButtonStyle.Copy().Width(tabW)
+			style = tabButtonStyle.Width(tabW)
 			label = "  " + name
 		}
 

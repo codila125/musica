@@ -109,7 +109,7 @@ func (c *Client) authenticate(ctx context.Context, username, password string) er
 		}
 
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-Emby-Authorization", fmt.Sprintf(`MediaBrowser Client="musica", Version="0.1.0", DeviceId="musica-tui", Device="Terminal"`))
+		req.Header.Set("X-Emby-Authorization", `MediaBrowser Client="musica", Version="0.1.0", DeviceId="musica-tui", Device="Terminal"`)
 
 		resp, err := c.client.Do(req)
 		if err != nil {

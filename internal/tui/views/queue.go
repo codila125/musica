@@ -43,12 +43,12 @@ func (m QueueModel) Update(msg tea.Msg) (QueueModel, tea.Cmd) {
 			}
 		case "down", "j":
 			queue := m.playback.Queue()
-			if queue != nil && m.cursor < len(queue)-1 {
+			if m.cursor < len(queue)-1 {
 				m.cursor++
 			}
 		case "enter", "p":
 			queue := m.playback.Queue()
-			if queue != nil && m.cursor < len(queue) {
+			if m.cursor < len(queue) {
 				_ = m.playback.ToggleQueueTrack(queue, m.cursor)
 			}
 		}
@@ -81,7 +81,7 @@ func (m QueueModel) View() string {
 	divider := listDivider(w - 8)
 	keys := retroSubtleStyle.Render("[p]lay/pause  [j/k]scroll")
 
-	if queue == nil || len(queue) == 0 {
+	if len(queue) == 0 {
 		content := lipgloss.JoinVertical(lipgloss.Left,
 			title,
 			divider,
