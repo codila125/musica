@@ -145,7 +145,15 @@ func runPlayer(serverName string) {
 		log.Fatalf("Failed to initialize player: %v", err)
 	}
 
-	m := tui.NewModel(client.(tui.API), pl)
+	currentServer := 0
+	for i, s := range cfg.Servers {
+		if s.Name == serverCfg.Name {
+			currentServer = i
+			break
+		}
+	}
+
+	m := tui.NewModel(client.(tui.API), pl, cfg.Servers, currentServer)
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {

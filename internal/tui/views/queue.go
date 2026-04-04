@@ -2,6 +2,7 @@ package views
 
 import (
 	"fmt"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -78,13 +79,28 @@ func (m QueueModel) View() string {
 	}
 
 	start := 0
-	if m.cursor > m.height-4 {
-		start = m.cursor - (m.height - 4)
+	visibleRows := m.height - 3
+	if visibleRows < 1 {
+		visibleRows = len(lines)
 	}
-	end := start + m.height - 3
+
+	if m.cursor > visibleRows-1 {
+		start = m.cursor - (visibleRows - 1)
+	}
+	if start < 0 {
+		start = 0
+	}
+	if start > len(lines) {
+		start = len(lines)
+	}
+
+	end := start + visibleRows
 	if end > len(lines) {
 		end = len(lines)
 	}
+	if end < start {
+		end = start
+	}
 
-	return lipgloss.NewStyle().Render(lines[start:end]...)
+	return lipgloss.NewStyle().Render(strings.Join(lines[start:end], "\n"))
 }
