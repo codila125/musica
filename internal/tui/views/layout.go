@@ -41,7 +41,7 @@ func listBoxStyle(w, h int) lipgloss.Style {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(colorPurpleBorder).
 		Padding(0, 1).
-		Width(w - 4).
+		Width(w - 6).
 		Height(h - 2)
 }
 

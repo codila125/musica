@@ -134,16 +134,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		// Pass inner dimensions to child views
-		innerW := msg.Width - mainFrameStyle.GetHorizontalFrameSize() - 2
-		innerH := msg.Height - mainFrameStyle.GetVerticalFrameSize() - 10
-		if innerW < 20 {
-			innerW = 20
-		}
-		if innerH < 8 {
-			innerH = 8
-		}
-		childSize := tea.WindowSizeMsg{Width: innerW, Height: innerH}
+		childW, childH := m.childViewportDims(msg.Width, msg.Height)
+		childSize := tea.WindowSizeMsg{Width: childW, Height: childH}
 		m.browse, _ = m.browse.Update(childSize)
 		m.search, _ = m.search.Update(childSize)
 		m.queue, _ = m.queue.Update(childSize)
@@ -213,15 +205,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.queue = views.NewQueueModel(m.player)
 
 		// Keep layout consistent after server switch by reapplying current size.
-		innerW := m.width - mainFrameStyle.GetHorizontalFrameSize() - 2
-		innerH := m.height - mainFrameStyle.GetVerticalFrameSize() - 10
-		if innerW < 20 {
-			innerW = 20
-		}
-		if innerH < 8 {
-			innerH = 8
-		}
-		childSize := tea.WindowSizeMsg{Width: innerW, Height: innerH}
+		childW, childH := m.childViewportDims(m.width, m.height)
+		childSize := tea.WindowSizeMsg{Width: childW, Height: childH}
 		m.browse, _ = m.browse.Update(childSize)
 		m.search, _ = m.search.Update(childSize)
 		m.queue, _ = m.queue.Update(childSize)
@@ -265,11 +250,11 @@ func (m Model) View() string {
 
 	// Build layout parts
 	innerW := w - mainFrameStyle.GetHorizontalFrameSize()
-	contentH := h - 12
+	childW, childH := m.childViewportDims(w, h)
 
 	header := m.renderHeader(innerW)
 	tabBar := m.renderTabBar(innerW)
-	content := m.renderContent(innerW, contentH)
+	content := m.renderContent(innerW, childW, childH)
 	footer := m.renderFooter(innerW)
 
 	// Join vertically
@@ -332,7 +317,7 @@ func (m Model) renderTabBar(w int) string {
 	return lipgloss.NewStyle().Width(w).Align(lipgloss.Center).Padding(0, 0, 1, 0).Render(tabBar)
 }
 
-func (m Model) renderContent(w, h int) string {
+func (m Model) renderContent(w, childW, childH int) string {
 	var content string
 	switch m.activeTab {
 	case TabBrowse:
@@ -345,9 +330,21 @@ func (m Model) renderContent(w, h int) string {
 
 	return lipgloss.NewStyle().
 		Width(w).
-		Height(h).
-		Align(lipgloss.Left, lipgloss.Top).
+		Height(childH).
+		Align(lipgloss.Center, lipgloss.Top).
 		Render(content)
+}
+
+func (m Model) childViewportDims(totalW, totalH int) (int, int) {
+	childW := totalW - mainFrameStyle.GetHorizontalFrameSize() - 2
+	childH := totalH - mainFrameStyle.GetVerticalFrameSize() - 10
+	if childW < 20 {
+		childW = 20
+	}
+	if childH < 8 {
+		childH = 8
+	}
+	return childW, childH
 }
 
 func (m Model) renderFooter(w int) string {
