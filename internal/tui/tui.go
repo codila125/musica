@@ -174,10 +174,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = "Server switch failed: " + msg.err.Error()
 			return m, nil
 		}
+		// Keep one player instance to avoid race conditions while switching.
+		// Reset playback/queue state before attaching new server data.
+		_ = m.player.Stop()
+
 		m.apiClient = msg.client
 		m.currentServer = msg.index
 		m.status = "Connected to " + m.servers[msg.index].Name
-		_ = m.player.Stop()
 		m.browse = views.NewBrowseModel(m.apiClient, m.player)
 		m.search = views.NewSearchModel(m.apiClient, m.player)
 		m.queue = views.NewQueueModel(m.player)

@@ -186,7 +186,10 @@ func (p *Player) Stop() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	p.mpv.Command([]string{"stop"})
+	if err := p.mpv.Command([]string{"stop"}); err != nil {
+		logger.Get().Debug("Player stop command returned: %v", err)
+		_ = p.mpv.SetPropertyString("pause", "yes")
+	}
 	p.queue = nil
 	p.current = 0
 	p.pausedPos = 0
