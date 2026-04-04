@@ -11,8 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/codila125/musica/internal/api"
-	"github.com/codila125/musica/internal/api/jellyfin"
-	"github.com/codila125/musica/internal/api/navidrome"
+	"github.com/codila125/musica/internal/app"
 	"github.com/codila125/musica/internal/config"
 	"github.com/codila125/musica/internal/logger"
 	"github.com/codila125/musica/internal/models"
@@ -45,6 +44,7 @@ type Model struct {
 	height        int
 	blinkOn       bool
 	state         appState
+	coordinator   switchCoordinator
 }
 
 // Colors
@@ -105,6 +105,11 @@ type switchServerMsg struct {
 	err    error
 }
 
+type switchCoordinator interface {
+	NextIndex(current int) (int, bool)
+	ConnectIndex(ctx context.Context, index int) app.SwitchResult
+}
+
 func NewModel(client api.Client, pl *player.Player, servers []config.ServerConfig, currentServer int) Model {
 	return Model{
 		apiClient:     client,
@@ -116,6 +121,7 @@ func NewModel(client api.Client, pl *player.Player, servers []config.ServerConfi
 		search:        views.NewSearchModel(client, pl),
 		queue:         views.NewQueueModel(pl),
 		state:         stateBooting,
+		coordinator:   app.NewCoordinator(servers, nil),
 	}
 }
 
@@ -152,8 +158,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.state == stateSwitchingServer {
 				return m, nil
 			}
-			if len(m.servers) > 1 {
-				next := (m.currentServer + 1) % len(m.servers)
+			if next, ok := m.coordinator.NextIndex(m.currentServer); ok {
 				m.status = fmt.Sprintf("Switching to %s...", m.servers[next].Name)
 				m = m.withState(stateSwitchingServer)
 				return m, m.switchServerCmd(next)
@@ -409,39 +414,7 @@ func (m Model) switchServerCmd(index int) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
-
-		if index < 0 || index >= len(m.servers) {
-			return switchServerMsg{err: fmt.Errorf("invalid server index")}
-		}
-
-		serverCfg := m.servers[index]
-		client, err := connectServer(ctx, serverCfg)
-		if err != nil {
-			return switchServerMsg{err: err}
-		}
-
-		return switchServerMsg{client: client, index: index}
-	}
-}
-
-func connectServer(ctx context.Context, serverCfg config.ServerConfig) (api.Client, error) {
-	switch serverCfg.Type {
-	case "navidrome":
-		c := navidrome.New(serverCfg)
-		if err := c.Ping(ctx); err != nil {
-			return nil, api.Wrap(api.ErrorKindNetwork, "navidrome.ping", err)
-		}
-		return c, nil
-	case "jellyfin":
-		c := jellyfin.New(serverCfg)
-		if err := c.Ping(ctx); err != nil {
-			return nil, api.Wrap(api.ErrorKindNetwork, "jellyfin.ping", err)
-		}
-		if err := c.Authenticate(ctx, serverCfg.Username, serverCfg.Password); err != nil {
-			return nil, api.Wrap(api.ErrorKindAuth, "jellyfin.authenticate", err)
-		}
-		return c, nil
-	default:
-		return nil, api.Wrap(api.ErrorKindConfig, "connect.type", fmt.Errorf("unknown server type: %s", serverCfg.Type))
+		res := m.coordinator.ConnectIndex(ctx, index)
+		return switchServerMsg{client: res.Client, index: res.Index, err: res.Err}
 	}
 }

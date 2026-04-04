@@ -9,6 +9,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/codila125/musica/internal/app"
+	"github.com/codila125/musica/internal/config"
 	"github.com/codila125/musica/internal/models"
 	"github.com/codila125/musica/internal/player"
 )
@@ -38,6 +40,17 @@ func (f fakeClient) StreamTrack(ctx context.Context, trackID string) (io.ReadClo
 }
 func (f fakeClient) GetStreamURL(trackID string) string { return "" }
 func (f fakeClient) GetCoverURL(albumID string) string  { return "" }
+
+type fakeCoordinator struct {
+	nextIndex int
+	nextOK    bool
+	result    app.SwitchResult
+}
+
+func (f fakeCoordinator) NextIndex(current int) (int, bool) { return f.nextIndex, f.nextOK }
+func (f fakeCoordinator) ConnectIndex(ctx context.Context, index int) app.SwitchResult {
+	return f.result
+}
 
 func TestSwitchServerStopsPlaybackAndAppliesClient(t *testing.T) {
 	pl, err := player.New()
@@ -73,6 +86,7 @@ func TestSwitchGuardPreventsConcurrentSwitches(t *testing.T) {
 
 	m := NewModel(fakeClient{}, pl, nil, 0)
 	m.state = stateSwitchingServer
+	m.coordinator = fakeCoordinator{nextOK: false}
 
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
 	model := updated.(Model)
@@ -82,5 +96,27 @@ func TestSwitchGuardPreventsConcurrentSwitches(t *testing.T) {
 	}
 	if cmd != nil {
 		t.Fatalf("expected no command when switching is already in progress")
+	}
+}
+
+func TestSwitchUsesCoordinatorResult(t *testing.T) {
+	pl, err := player.New()
+	if err != nil {
+		t.Fatalf("new player: %v", err)
+	}
+	defer pl.Close()
+
+	servers := []config.ServerConfig{{Name: "A"}, {Name: "B"}}
+	m := NewModel(fakeClient{}, pl, servers, 0)
+	m.state = stateReady
+	m.coordinator = fakeCoordinator{nextIndex: 1, nextOK: true, result: app.SwitchResult{Client: fakeClient{}, Index: 1}}
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	if cmd == nil {
+		t.Fatalf("expected switch command")
+	}
+	model := updated.(Model)
+	if model.state != stateSwitchingServer {
+		t.Fatalf("expected switching state")
 	}
 }
