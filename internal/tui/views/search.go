@@ -140,7 +140,10 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 				if m.cursor < count-1 {
 					m.cursor++
 				}
-			case "tab":
+			case "left", "h":
+				m.resultType = (m.resultType - 1 + 3) % 3
+				m.cursor = 0
+			case "right", "l":
 				m.resultType = (m.resultType + 1) % 3
 				m.cursor = 0
 			case "q":
