@@ -72,13 +72,13 @@ func TestSwitchGuardPreventsConcurrentSwitches(t *testing.T) {
 	defer pl.Close()
 
 	m := NewModel(fakeClient{}, pl, nil, 0)
-	m.switching = true
+	m.state = stateSwitchingServer
 
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
 	model := updated.(Model)
 
-	if !model.switching {
-		t.Fatalf("expected switching guard to remain true")
+	if model.state != stateSwitchingServer {
+		t.Fatalf("expected switching guard to remain in switching state")
 	}
 	if cmd != nil {
 		t.Fatalf("expected no command when switching is already in progress")

@@ -43,7 +43,7 @@ type Model struct {
 	width         int
 	height        int
 	blinkOn       bool
-	switching     bool
+	state         appState
 }
 
 // Colors
@@ -114,6 +114,7 @@ func NewModel(client api.Client, pl *player.Player, servers []config.ServerConfi
 		browse:        views.NewBrowseModel(client, pl),
 		search:        views.NewSearchModel(client, pl),
 		queue:         views.NewQueueModel(pl),
+		state:         stateReady,
 	}
 }
 
@@ -154,13 +155,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, key.NewBinding(key.WithKeys("s"))):
-			if m.switching {
+			if m.state == stateSwitchingServer {
 				return m, nil
 			}
 			if len(m.servers) > 1 {
 				next := (m.currentServer + 1) % len(m.servers)
 				m.status = fmt.Sprintf("Switching to %s...", m.servers[next].Name)
-				m.switching = true
+				m.state = stateSwitchingServer
 				return m, m.switchServerCmd(next)
 			}
 			return m, nil
@@ -175,7 +176,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case switchServerMsg:
-		m.switching = false
+		m.state = stateReady
 		if msg.err != nil {
 			switch api.KindOf(msg.err) {
 			case api.ErrorKindAuth:
@@ -192,6 +193,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Keep one player instance to avoid race conditions while switching.
 		// Reset playback/queue state before attaching new server data.
 		_ = m.player.Stop()
+
+		// Cancel in-flight async requests from previous server context.
+		m.browse, _ = m.browse.Update(views.CancelInFlightCmd())
+		m.search, _ = m.search.Update(views.CancelInFlightCmd())
 
 		m.apiClient = msg.client
 		if msg.index >= 0 && msg.index < len(m.servers) {
@@ -220,6 +225,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.queue, _ = m.queue.Update(childSize)
 
 		return m, tea.Batch(m.browse.Init(), m.search.Init(), m.queue.Init())
+	}
+
+	// Route async/background messages to all child views so data loads
+	// and updates aren't dropped when a tab isn't currently active.
+	if _, ok := msg.(tea.KeyMsg); !ok {
+		var cmdBrowse, cmdSearch, cmdQueue tea.Cmd
+		m.browse, cmdBrowse = m.browse.Update(msg)
+		m.search, cmdSearch = m.search.Update(msg)
+		m.queue, cmdQueue = m.queue.Update(msg)
+		return m, tea.Batch(cmdBrowse, cmdSearch, cmdQueue)
 	}
 
 	var cmd tea.Cmd

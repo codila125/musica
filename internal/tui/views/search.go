@@ -24,23 +24,23 @@ const (
 )
 
 type SearchModel struct {
-	apiClient  api.Client
-	player     *player.Player
-	input      textinput.Model
-	spinner    spinner.Model
-	state      SearchState
-	results    models.SearchResult
-	loading    bool
-	err        error
-	width      int
-	height     int
-	cursor     int
-	resultType int
-	searchSeq  int
+	apiClient   api.Client
+	player      *player.Player
+	input       textinput.Model
+	spinner     spinner.Model
+	state       SearchState
+	results     models.SearchResult
+	loading     bool
+	err         error
+	width       int
+	height      int
+	cursor      int
+	resultType  int
+	searchReqID int64
 }
 
 type searchResultsMsg struct {
-	id     int
+	id     int64
 	result models.SearchResult
 	err    error
 }
@@ -56,12 +56,12 @@ func NewSearchModel(client api.Client, pl *player.Player) SearchModel {
 	s.Spinner = spinner.Dot
 
 	return SearchModel{
-		apiClient: client,
-		player:    pl,
-		input:     ti,
-		spinner:   s,
-		state:     SearchInput,
-		searchSeq: 1,
+		apiClient:   client,
+		player:      pl,
+		input:       ti,
+		spinner:     s,
+		state:       SearchInput,
+		searchReqID: nextRequestID(),
 	}
 }
 
@@ -87,12 +87,12 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 			if m.state == SearchInput {
 				query := m.input.Value()
 				if query != "" {
-					m.searchSeq++
+					m.searchReqID = nextRequestID()
 					m.loading = true
 					m.err = nil
 					m.state = SearchResults
 					m.cursor = 0
-					return m, m.search(m.searchSeq, query)
+					return m, m.search(m.searchReqID, query)
 				}
 			} else if m.state == SearchResults {
 				return m.handlePlay(), nil
@@ -119,13 +119,17 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 			}
 		}
 
+	case cancelInFlightMsg:
+		m.searchReqID = nextRequestID()
+		m.loading = false
+
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
 		cmds = append(cmds, cmd)
 
 	case searchResultsMsg:
-		if msg.id != m.searchSeq {
+		if msg.id != m.searchReqID {
 			return m, tea.Batch(cmds...)
 		}
 		m.loading = false
@@ -277,7 +281,7 @@ func (m SearchModel) renderResultsView(boxStyle lipgloss.Style, w, h int) string
 	return boxStyle.Render(content)
 }
 
-func (m SearchModel) search(id int, query string) tea.Cmd {
+func (m SearchModel) search(id int64, query string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
