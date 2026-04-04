@@ -56,11 +56,28 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 			}
 		case "enter", "p":
 			if len(m.tracks) > 0 {
-				if err := m.player.PlayQueue(m.tracks, m.cursor); err != nil {
-					m.err = fmt.Errorf("play: %w", err)
+				cur := m.player.CurrentTrack()
+				if cur != nil && cur.ID == m.tracks[m.cursor].ID && m.player.State() == models.StatePlaying {
+					if err := m.player.Pause(); err != nil {
+						m.err = fmt.Errorf("pause: %w", err)
+					} else {
+						m.err = nil
+						m.debug = "Paused"
+					}
+				} else if cur != nil && cur.ID == m.tracks[m.cursor].ID && m.player.State() == models.StatePaused {
+					if err := m.player.Resume(); err != nil {
+						m.err = fmt.Errorf("resume: %w", err)
+					} else {
+						m.err = nil
+						m.debug = "Resumed"
+					}
 				} else {
-					m.err = nil
-					m.debug = "Playing: " + m.tracks[m.cursor].Title
+					if err := m.player.PlayQueue(m.tracks, m.cursor); err != nil {
+						m.err = fmt.Errorf("play: %w", err)
+					} else {
+						m.err = nil
+						m.debug = "Playing: " + m.tracks[m.cursor].Title
+					}
 				}
 			}
 		case "r":

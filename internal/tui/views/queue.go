@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/codila125/musica/internal/models"
 	"github.com/codila125/musica/internal/player"
 )
 
@@ -44,10 +45,17 @@ func (m QueueModel) Update(msg tea.Msg) (QueueModel, tea.Cmd) {
 			if m.cursor < len(queue)-1 {
 				m.cursor++
 			}
-		case "enter":
+		case "enter", "p":
 			queue := m.player.Queue()
 			if m.cursor < len(queue) {
-				_ = m.player.PlayQueue(queue, m.cursor)
+				cur := m.player.CurrentTrack()
+				if cur != nil && cur.ID == queue[m.cursor].ID && m.player.State() == models.StatePlaying {
+					_ = m.player.Pause()
+				} else if cur != nil && cur.ID == queue[m.cursor].ID && m.player.State() == models.StatePaused {
+					_ = m.player.Resume()
+				} else {
+					_ = m.player.PlayQueue(queue, m.cursor)
+				}
 			}
 		}
 	}

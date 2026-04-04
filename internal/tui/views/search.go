@@ -71,7 +71,7 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "enter":
+		case "enter", "p":
 			if m.state == SearchInput {
 				query := m.input.Value()
 				if query != "" {
@@ -80,7 +80,27 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 					return m, m.search(query)
 				}
 			} else if m.state == SearchResults {
-				return m.handlePlay(), nil
+				if m.resultType == 0 && len(m.results.Tracks) > 0 && m.cursor < len(m.results.Tracks) {
+					cur := m.player.CurrentTrack()
+					selected := m.results.Tracks[m.cursor]
+					if cur != nil && cur.ID == selected.ID && m.player.State() == models.StatePlaying {
+						if err := m.player.Pause(); err != nil {
+							m.err = fmt.Errorf("pause: %w", err)
+						} else {
+							m.err = nil
+							m.input.Placeholder = "Paused"
+						}
+					} else if cur != nil && cur.ID == selected.ID && m.player.State() == models.StatePaused {
+						if err := m.player.Resume(); err != nil {
+							m.err = fmt.Errorf("resume: %w", err)
+						} else {
+							m.err = nil
+							m.input.Placeholder = "Resumed"
+						}
+					} else {
+						return m.handlePlay(), nil
+					}
+				}
 			}
 		case "esc":
 			if m.state == SearchResults {
