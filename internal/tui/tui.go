@@ -14,6 +14,7 @@ import (
 	"github.com/codila125/musica/internal/api/jellyfin"
 	"github.com/codila125/musica/internal/api/navidrome"
 	"github.com/codila125/musica/internal/config"
+	"github.com/codila125/musica/internal/logger"
 	"github.com/codila125/musica/internal/models"
 	"github.com/codila125/musica/internal/player"
 	"github.com/codila125/musica/internal/tui/views"
@@ -119,7 +120,7 @@ func NewModel(client api.Client, pl *player.Player, servers []config.ServerConfi
 }
 
 func (m Model) Init() tea.Cmd {
-	m.state = stateLoading
+	m = m.withState(stateLoading)
 	return tea.Batch(m.browse.Init(), m.search.Init(), m.queue.Init(), uiTickCmd())
 }
 
@@ -154,7 +155,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.servers) > 1 {
 				next := (m.currentServer + 1) % len(m.servers)
 				m.status = fmt.Sprintf("Switching to %s...", m.servers[next].Name)
-				m.state = stateSwitchingServer
+				m = m.withState(stateSwitchingServer)
 				return m, m.switchServerCmd(next)
 			}
 			return m, nil
@@ -169,9 +170,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case switchServerMsg:
-		m.state = stateLoading
+		m = m.withState(stateLoading)
 		if msg.err != nil {
-			m.state = stateError
+			m = m.withState(stateError)
 			switch api.KindOf(msg.err) {
 			case api.ErrorKindAuth:
 				m.status = "Server switch failed: authentication error"
@@ -211,7 +212,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.search, _ = m.search.Update(childSize)
 		m.queue, _ = m.queue.Update(childSize)
 
-		m.state = stateReady
+		m = m.withState(stateReady)
 		return m, tea.Batch(m.browse.Init(), m.search.Init(), m.queue.Init())
 	}
 
@@ -345,6 +346,21 @@ func (m Model) childViewportDims(totalW, totalH int) (int, int) {
 		childH = 8
 	}
 	return childW, childH
+}
+
+func (m Model) withState(next appState) Model {
+	if m.state == next {
+		return m
+	}
+
+	if !canTransition(m.state, next) {
+		logger.Get().Error("invalid state transition: %s -> %s", m.state.String(), next.String())
+		return m
+	}
+
+	logger.Get().Debug("state transition: %s -> %s", m.state.String(), next.String())
+	m.state = next
+	return m
 }
 
 func (m Model) renderFooter(w int) string {
