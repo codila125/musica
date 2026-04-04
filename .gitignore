@@ -3,3 +3,6 @@
 
 # local config and runtime files
 .config/
+
+run.sh
+musica
