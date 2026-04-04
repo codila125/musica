@@ -32,6 +32,7 @@ const (
 type Model struct {
 	apiClient     api.Client
 	player        *player.Player
+	playback      *app.PlaybackController
 	servers       []config.ServerConfig
 	currentServer int
 	status        string
@@ -111,15 +112,18 @@ type switchCoordinator interface {
 }
 
 func NewModel(client api.Client, pl *player.Player, servers []config.ServerConfig, currentServer int) Model {
+	playback := app.NewPlaybackController(pl)
+
 	return Model{
 		apiClient:     client,
 		player:        pl,
+		playback:      playback,
 		servers:       servers,
 		currentServer: currentServer,
 		tabs:          []string{"BROWSE", "SEARCH", "QUEUE"},
-		browse:        views.NewBrowseModel(client, pl),
-		search:        views.NewSearchModel(client, pl),
-		queue:         views.NewQueueModel(pl),
+		browse:        views.NewBrowseModel(client, playback),
+		search:        views.NewSearchModel(client, playback),
+		queue:         views.NewQueueModel(playback),
 		state:         stateBooting,
 		coordinator:   app.NewCoordinator(servers, nil),
 	}
@@ -192,7 +196,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Keep one player instance to avoid race conditions while switching.
 		// Reset playback/queue state before attaching new server data.
-		_ = m.player.Stop()
+		_ = m.playback.Stop()
 
 		// Cancel in-flight async requests from previous server context.
 		m.browse, _ = m.browse.Update(views.CancelInFlightCmd())
@@ -206,9 +210,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.currentServer = 0
 			m.status = "Connected"
 		}
-		m.browse = views.NewBrowseModel(m.apiClient, m.player)
-		m.search = views.NewSearchModel(m.apiClient, m.player)
-		m.queue = views.NewQueueModel(m.player)
+		m.browse = views.NewBrowseModel(m.apiClient, m.playback)
+		m.search = views.NewSearchModel(m.apiClient, m.playback)
+		m.queue = views.NewQueueModel(m.playback)
 
 		// Keep layout consistent after server switch by reapplying current size.
 		childW, childH := m.childViewportDims(m.width, m.height)
@@ -379,9 +383,9 @@ func (m Model) renderFooter(w int) string {
 
 	// Now playing
 	nowPlaying := footerStyle.Render("No track playing")
-	if track := m.player.CurrentTrack(); track != nil {
+	if track := m.playback.CurrentTrack(); track != nil {
 		stateIcon := "■"
-		switch m.player.State() {
+		switch m.playback.State() {
 		case models.StatePlaying:
 			stateIcon = "▶"
 		case models.StatePaused:

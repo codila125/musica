@@ -13,7 +13,6 @@ import (
 
 	"github.com/codila125/musica/internal/api"
 	"github.com/codila125/musica/internal/models"
-	"github.com/codila125/musica/internal/player"
 )
 
 type SearchState int
@@ -25,7 +24,7 @@ const (
 
 type SearchModel struct {
 	apiClient    api.Client
-	player       PlayerService
+	playback     PlaybackService
 	input        textinput.Model
 	spinner      spinner.Model
 	state        SearchState
@@ -46,7 +45,7 @@ type searchResultsMsg struct {
 	err    error
 }
 
-func NewSearchModel(client api.Client, pl *player.Player) SearchModel {
+func NewSearchModel(client api.Client, pl PlaybackService) SearchModel {
 	ti := textinput.New()
 	ti.Placeholder = "Type to search..."
 	ti.Focus()
@@ -58,7 +57,7 @@ func NewSearchModel(client api.Client, pl *player.Player) SearchModel {
 
 	return SearchModel{
 		apiClient:   client,
-		player:      pl,
+		playback:    pl,
 		input:       ti,
 		spinner:     s,
 		state:       SearchInput,
@@ -66,7 +65,7 @@ func NewSearchModel(client api.Client, pl *player.Player) SearchModel {
 	}
 }
 
-func NewSearchModelWithService(client api.Client, pl PlayerService) SearchModel {
+func NewSearchModelWithService(client api.Client, pl PlaybackService) SearchModel {
 	ti := textinput.New()
 	ti.Placeholder = "Type to search..."
 	ti.Focus()
@@ -78,7 +77,7 @@ func NewSearchModelWithService(client api.Client, pl PlayerService) SearchModel 
 
 	return SearchModel{
 		apiClient:   client,
-		player:      pl,
+		playback:    pl,
 		input:       ti,
 		spinner:     s,
 		state:       SearchInput,
@@ -133,14 +132,11 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 		case "p":
 			if m.state == SearchResults {
 				if m.resultType == 0 && len(m.results.Tracks) > 0 && m.cursor < len(m.results.Tracks) {
-					cur := m.player.CurrentTrack()
 					selected := m.results.Tracks[m.cursor]
-					if cur != nil && cur.ID == selected.ID && m.player.State() == models.StatePlaying {
-						_ = m.player.Pause()
-					} else if cur != nil && cur.ID == selected.ID && m.player.State() == models.StatePaused {
-						_ = m.player.Resume()
+					if err := m.playback.ToggleTrack(selected); err != nil {
+						m.err = fmt.Errorf("play: %w", err)
 					} else {
-						return m.handlePlay(), nil
+						m.err = nil
 					}
 				}
 			}
@@ -206,7 +202,7 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 			case "q":
 				if m.resultType == 0 && len(m.results.Tracks) > 0 && m.cursor < len(m.results.Tracks) {
 					track := m.results.Tracks[m.cursor]
-					if err := m.player.AppendToQueue(track); err != nil {
+					if err := m.playback.QueueTrack(track); err != nil {
 						m.err = fmt.Errorf("queue: %w", err)
 					} else {
 						m.err = nil
@@ -328,7 +324,7 @@ func (m SearchModel) handlePlay() SearchModel {
 				m.err = fmt.Errorf("track has empty stream URL")
 				return m
 			}
-			if err := m.player.Play(track); err != nil {
+			if err := m.playback.PlayTrack(track); err != nil {
 				m.err = fmt.Errorf("play: %w", err)
 			} else {
 				m.err = nil

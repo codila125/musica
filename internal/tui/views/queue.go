@@ -6,26 +6,23 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-
-	"github.com/codila125/musica/internal/models"
-	"github.com/codila125/musica/internal/player"
 )
 
 type QueueModel struct {
-	player PlayerService
-	width  int
-	height int
-	cursor int
+	playback PlaybackService
+	width    int
+	height   int
+	cursor   int
 }
 
-func NewQueueModel(pl *player.Player) QueueModel {
+func NewQueueModel(pl PlaybackService) QueueModel {
 	return QueueModel{
-		player: pl,
+		playback: pl,
 	}
 }
 
-func NewQueueModelWithService(pl PlayerService) QueueModel {
-	return QueueModel{player: pl}
+func NewQueueModelWithService(pl PlaybackService) QueueModel {
+	return QueueModel{playback: pl}
 }
 
 func (m QueueModel) Init() tea.Cmd {
@@ -45,21 +42,14 @@ func (m QueueModel) Update(msg tea.Msg) (QueueModel, tea.Cmd) {
 				m.cursor--
 			}
 		case "down", "j":
-			queue := m.player.Queue()
+			queue := m.playback.Queue()
 			if queue != nil && m.cursor < len(queue)-1 {
 				m.cursor++
 			}
 		case "enter", "p":
-			queue := m.player.Queue()
+			queue := m.playback.Queue()
 			if queue != nil && m.cursor < len(queue) {
-				cur := m.player.CurrentTrack()
-				if cur != nil && cur.ID == queue[m.cursor].ID && m.player.State() == models.StatePlaying {
-					_ = m.player.Pause()
-				} else if cur != nil && cur.ID == queue[m.cursor].ID && m.player.State() == models.StatePaused {
-					_ = m.player.Resume()
-				} else {
-					_ = m.player.PlayQueue(queue, m.cursor)
-				}
+				_ = m.playback.ToggleQueueTrack(queue, m.cursor)
 			}
 		}
 	}
@@ -70,8 +60,8 @@ func (m QueueModel) Update(msg tea.Msg) (QueueModel, tea.Cmd) {
 func (m QueueModel) View() string {
 	w, h := normalizeViewSize(m.width, m.height)
 
-	queue := m.player.Queue()
-	current := m.player.CurrentIndex()
+	queue := m.playback.Queue()
+	current := m.playback.CurrentIndex()
 
 	boxStyle := listBoxStyle(w, h)
 

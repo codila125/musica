@@ -48,6 +48,33 @@ type fakePlayerService struct {
 	current int
 }
 
+func (f *fakePlayerService) ToggleTrack(track models.Track) error {
+	cur := f.CurrentTrack()
+	if cur != nil && cur.ID == track.ID {
+		if f.state == models.StatePlaying {
+			f.state = models.StatePaused
+			return nil
+		}
+		if f.state == models.StatePaused {
+			f.state = models.StatePlaying
+			return nil
+		}
+	}
+	return f.Play(track)
+}
+
+func (f *fakePlayerService) ToggleQueueTrack(queue []models.Track, cursor int) error {
+	if cursor < 0 || cursor >= len(queue) {
+		return nil
+	}
+	return f.PlayQueue(queue, cursor)
+}
+
+func (f *fakePlayerService) PlayTrack(track models.Track) error { return f.Play(track) }
+func (f *fakePlayerService) QueueTrack(track models.Track) error {
+	return f.AppendToQueue(track)
+}
+
 func (f *fakePlayerService) Play(track models.Track) error {
 	f.queue = []models.Track{track}
 	f.current = 0

@@ -11,12 +11,11 @@ import (
 
 	"github.com/codila125/musica/internal/api"
 	"github.com/codila125/musica/internal/models"
-	"github.com/codila125/musica/internal/player"
 )
 
 type BrowseModel struct {
 	apiClient api.Client
-	player    PlayerService
+	playback  PlaybackService
 
 	tracks     []models.Track
 	cursor     int
@@ -34,22 +33,17 @@ type browseTracksMsg struct {
 	err    error
 }
 
-func NewBrowseModel(client api.Client, pl *player.Player) BrowseModel {
+func NewBrowseModel(client api.Client, pl PlaybackService) BrowseModel {
 	return BrowseModel{
 		apiClient: client,
-		player:    pl,
+		playback:  pl,
 		loading:   true,
 		loadReqID: nextRequestID(),
 	}
 }
 
-func NewBrowseModelWithService(client api.Client, pl PlayerService) BrowseModel {
-	return BrowseModel{
-		apiClient: client,
-		player:    pl,
-		loading:   true,
-		loadReqID: nextRequestID(),
-	}
+func NewBrowseModelWithService(client api.Client, pl PlaybackService) BrowseModel {
+	return NewBrowseModel(client, pl)
 }
 
 func (m BrowseModel) Init() tea.Cmd {
@@ -74,32 +68,13 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 			}
 		case "enter", "p":
 			if len(m.tracks) > 0 {
-				cur := m.player.CurrentTrack()
-				if cur != nil && cur.ID == m.tracks[m.cursor].ID && m.player.State() == models.StatePlaying {
-					if err := m.player.Pause(); err != nil {
-						m.err = fmt.Errorf("pause: %w", err)
-					} else {
-						m.err = nil
-					}
-				} else if cur != nil && cur.ID == m.tracks[m.cursor].ID && m.player.State() == models.StatePaused {
-					if err := m.player.Resume(); err != nil {
-						m.err = fmt.Errorf("resume: %w", err)
-					} else {
-						m.err = nil
-					}
-				} else {
-					if err := m.player.Play(m.tracks[m.cursor]); err != nil {
-						m.err = fmt.Errorf("play: %w", err)
-					} else {
-						m.err = nil
-					}
-				}
+				m.err = m.playback.ToggleTrack(m.tracks[m.cursor])
 			}
 		case "r":
 			return m.beginLoadRecentTracks()
 		case "q":
 			if len(m.tracks) > 0 {
-				if err := m.player.AppendToQueue(m.tracks[m.cursor]); err != nil {
+				if err := m.playback.QueueTrack(m.tracks[m.cursor]); err != nil {
 					m.err = fmt.Errorf("queue: %w", err)
 				} else {
 					m.err = nil
@@ -246,7 +221,7 @@ func (m BrowseModel) View() string {
 }
 
 func (m BrowseModel) renderCompactCassette() string {
-	state := m.player.State()
+	state := m.playback.State()
 	interval := 200 * time.Millisecond
 	moving := false
 	stateLabel := "■ STOP"
