@@ -16,7 +16,6 @@ import (
 	"github.com/codila125/musica/internal/logger"
 	"github.com/codila125/musica/internal/models"
 	"github.com/codila125/musica/internal/player"
-	"github.com/codila125/musica/internal/tui/views"
 )
 
 type API = api.Client
@@ -38,9 +37,7 @@ type Model struct {
 	status        string
 	tabs          []string
 	activeTab     Tab
-	browse        views.BrowseModel
-	search        views.SearchModel
-	queue         views.QueueModel
+	views         viewAdapter
 	width         int
 	height        int
 	blinkOn       bool
@@ -121,9 +118,7 @@ func NewModel(client api.Client, pl *player.Player, servers []config.ServerConfi
 		servers:       servers,
 		currentServer: currentServer,
 		tabs:          []string{"BROWSE", "SEARCH", "QUEUE"},
-		browse:        views.NewBrowseModel(client, playback),
-		search:        views.NewSearchModel(client, playback),
-		queue:         views.NewQueueModel(playback),
+		views:         newViewAdapter(client, playback),
 		state:         stateBooting,
 		coordinator:   app.NewCoordinator(servers, nil),
 	}
@@ -131,7 +126,7 @@ func NewModel(client api.Client, pl *player.Player, servers []config.ServerConfi
 
 func (m Model) Init() tea.Cmd {
 	m = m.withState(stateLoading)
-	return tea.Batch(m.browse.Init(), m.search.Init(), m.queue.Init(), uiTickCmd())
+	return tea.Batch(m.views.Init(), uiTickCmd())
 }
 
 func uiTickCmd() tea.Cmd {
@@ -147,9 +142,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		childW, childH := m.childViewportDims(msg.Width, msg.Height)
 		childSize := tea.WindowSizeMsg{Width: childW, Height: childH}
-		m.browse, _ = m.browse.Update(childSize)
-		m.search, _ = m.search.Update(childSize)
-		m.queue, _ = m.queue.Update(childSize)
+		m.views.Resize(childSize)
 		return m, nil
 
 	case uiTickMsg:
@@ -199,8 +192,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		_ = m.playback.Stop()
 
 		// Cancel in-flight async requests from previous server context.
-		m.browse, _ = m.browse.Update(views.CancelInFlightCmd())
-		m.search, _ = m.search.Update(views.CancelInFlightCmd())
+		m.views.CancelInFlight()
 
 		m.apiClient = msg.client
 		if msg.index >= 0 && msg.index < len(m.servers) {
@@ -210,42 +202,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.currentServer = 0
 			m.status = "Connected"
 		}
-		m.browse = views.NewBrowseModel(m.apiClient, m.playback)
-		m.search = views.NewSearchModel(m.apiClient, m.playback)
-		m.queue = views.NewQueueModel(m.playback)
+		m.views = newViewAdapter(m.apiClient, m.playback)
 
 		// Keep layout consistent after server switch by reapplying current size.
 		childW, childH := m.childViewportDims(m.width, m.height)
 		childSize := tea.WindowSizeMsg{Width: childW, Height: childH}
-		m.browse, _ = m.browse.Update(childSize)
-		m.search, _ = m.search.Update(childSize)
-		m.queue, _ = m.queue.Update(childSize)
+		m.views.Resize(childSize)
 
 		m = m.withState(stateReady)
-		return m, tea.Batch(m.browse.Init(), m.search.Init(), m.queue.Init())
+		return m, m.views.Init()
 	}
 
 	// Route async/background messages to all child views so data loads
 	// and updates aren't dropped when a tab isn't currently active.
 	if _, ok := msg.(tea.KeyMsg); !ok {
-		var cmdBrowse, cmdSearch, cmdQueue tea.Cmd
-		m.browse, cmdBrowse = m.browse.Update(msg)
-		m.search, cmdSearch = m.search.Update(msg)
-		m.queue, cmdQueue = m.queue.Update(msg)
-		return m, tea.Batch(cmdBrowse, cmdSearch, cmdQueue)
+		return m, m.views.UpdateAll(msg)
 	}
 
-	var cmd tea.Cmd
-	switch m.activeTab {
-	case TabBrowse:
-		m.browse, cmd = m.browse.Update(msg)
-	case TabSearch:
-		m.search, cmd = m.search.Update(msg)
-	case TabQueue:
-		m.queue, cmd = m.queue.Update(msg)
-	}
-
-	return m, cmd
+	return m, m.views.UpdateActive(m.activeTab, msg)
 }
 
 func (m Model) View() string {
@@ -328,15 +302,7 @@ func (m Model) renderTabBar(w int) string {
 }
 
 func (m Model) renderContent(w, childW, childH int) string {
-	var content string
-	switch m.activeTab {
-	case TabBrowse:
-		content = m.browse.View()
-	case TabSearch:
-		content = m.search.View()
-	case TabQueue:
-		content = m.queue.View()
-	}
+	content := m.views.View(m.activeTab)
 
 	return lipgloss.NewStyle().
 		Width(w).
