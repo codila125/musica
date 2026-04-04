@@ -139,6 +139,10 @@ Quality gates are documented in:
 
 - `docs/ci.md`
 
+Reliability/fault-injection notes are in:
+
+- `docs/reliability.md`
+
 ## License
 
 No license file is currently present in this repository.
