@@ -16,6 +16,7 @@ import (
 	"github.com/codila125/musica/internal/logger"
 	"github.com/codila125/musica/internal/models"
 	"github.com/codila125/musica/internal/player"
+	"github.com/codila125/musica/internal/telemetry"
 )
 
 type API = api.Client
@@ -98,9 +99,11 @@ var (
 type uiTickMsg time.Time
 
 type switchServerMsg struct {
-	client api.Client
-	index  int
-	err    error
+	traceID string
+	started time.Time
+	client  api.Client
+	index   int
+	err     error
 }
 
 type switchCoordinator interface {
@@ -153,10 +156,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, key.NewBinding(key.WithKeys("s"))):
 			if m.state == stateSwitchingServer {
+				telemetry.Count("switch.ignored.in_progress")
 				return m, nil
 			}
 			if next, ok := m.coordinator.NextIndex(m.currentServer); ok {
 				m.status = fmt.Sprintf("Switching to %s...", m.servers[next].Name)
+				telemetry.Count("switch.requested")
+				telemetry.Event("switch.start",
+					telemetry.Field{Key: "from", Value: m.currentServer},
+					telemetry.Field{Key: "to", Value: next},
+				)
 				m = m.withState(stateSwitchingServer)
 				return m, m.switchServerCmd(next)
 			}
@@ -172,9 +181,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case switchServerMsg:
+		durationMs := time.Since(msg.started).Milliseconds()
 		m = m.withState(stateLoading)
 		if msg.err != nil {
 			m = m.withState(stateError)
+			telemetry.Count("switch.failed")
+			telemetry.Event("switch.complete",
+				telemetry.Field{Key: "trace_id", Value: msg.traceID},
+				telemetry.Field{Key: "to", Value: msg.index},
+				telemetry.Field{Key: "ok", Value: false},
+				telemetry.Field{Key: "err_kind", Value: api.KindOf(msg.err)},
+				telemetry.Field{Key: "duration_ms", Value: durationMs},
+			)
 			switch api.KindOf(msg.err) {
 			case api.ErrorKindAuth:
 				m.status = "Server switch failed: authentication error"
@@ -210,6 +228,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.views.Resize(childSize)
 
 		m = m.withState(stateReady)
+		telemetry.Count("switch.success")
+		telemetry.Event("switch.complete",
+			telemetry.Field{Key: "trace_id", Value: msg.traceID},
+			telemetry.Field{Key: "to", Value: msg.index},
+			telemetry.Field{Key: "ok", Value: true},
+			telemetry.Field{Key: "duration_ms", Value: durationMs},
+		)
 		return m, m.views.Init()
 	}
 
@@ -330,10 +355,20 @@ func (m Model) withState(next appState) Model {
 
 	if !canTransition(m.state, next) {
 		logger.Get().Error("invalid state transition: %s -> %s", m.state.String(), next.String())
+		telemetry.Count("state.invalid_transition")
+		telemetry.Event("state.transition.invalid",
+			telemetry.Field{Key: "from", Value: m.state.String()},
+			telemetry.Field{Key: "to", Value: next.String()},
+		)
 		return m
 	}
 
 	logger.Get().Debug("state transition: %s -> %s", m.state.String(), next.String())
+	telemetry.Count("state.transition")
+	telemetry.Event("state.transition",
+		telemetry.Field{Key: "from", Value: m.state.String()},
+		telemetry.Field{Key: "to", Value: next.String()},
+	)
 	m.state = next
 	return m
 }
@@ -381,10 +416,26 @@ func (m Model) renderFooter(w int) string {
 }
 
 func (m Model) switchServerCmd(index int) tea.Cmd {
+	traceID := fmt.Sprintf("sw-%d-%d", time.Now().UnixNano(), index)
+	start := time.Now()
 	return func() tea.Msg {
+		endConnect := telemetry.Timed("switch.connect",
+			telemetry.Field{Key: "trace_id", Value: traceID},
+			telemetry.Field{Key: "to", Value: index},
+		)
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 		res := m.coordinator.ConnectIndex(ctx, index)
-		return switchServerMsg{client: res.Client, index: res.Index, err: res.Err}
+		if res.Err != nil {
+			telemetry.Count("switch.connect.failed")
+			endConnect(
+				telemetry.Field{Key: "ok", Value: false},
+				telemetry.Field{Key: "err_kind", Value: api.KindOf(res.Err)},
+			)
+		} else {
+			telemetry.Count("switch.connect.success")
+			endConnect(telemetry.Field{Key: "ok", Value: true})
+		}
+		return switchServerMsg{traceID: traceID, started: start, client: res.Client, index: res.Index, err: res.Err}
 	}
 }
