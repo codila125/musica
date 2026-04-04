@@ -1,3 +1,5 @@
+//go:build !testmpv
+
 package player
 
 import (

@@ -177,7 +177,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case switchServerMsg:
 		m.switching = false
 		if msg.err != nil {
-			m.status = "Server switch failed: " + msg.err.Error()
+			switch api.KindOf(msg.err) {
+			case api.ErrorKindAuth:
+				m.status = "Server switch failed: authentication error"
+			case api.ErrorKindNetwork:
+				m.status = "Server switch failed: network error"
+			case api.ErrorKindConfig:
+				m.status = "Server switch failed: configuration error"
+			default:
+				m.status = "Server switch failed: " + msg.err.Error()
+			}
 			return m, nil
 		}
 		// Keep one player instance to avoid race conditions while switching.
@@ -185,8 +194,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		_ = m.player.Stop()
 
 		m.apiClient = msg.client
-		m.currentServer = msg.index
-		m.status = "Connected to " + m.servers[msg.index].Name
+		if msg.index >= 0 && msg.index < len(m.servers) {
+			m.currentServer = msg.index
+			m.status = "Connected to " + m.servers[msg.index].Name
+		} else {
+			m.currentServer = 0
+			m.status = "Connected"
+		}
 		m.browse = views.NewBrowseModel(m.apiClient, m.player)
 		m.search = views.NewSearchModel(m.apiClient, m.player)
 		m.queue = views.NewQueueModel(m.player)
@@ -362,12 +376,15 @@ func (m Model) renderFooter(w int) string {
 
 func (m Model) switchServerCmd(index int) tea.Cmd {
 	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+
 		if index < 0 || index >= len(m.servers) {
 			return switchServerMsg{err: fmt.Errorf("invalid server index")}
 		}
 
 		serverCfg := m.servers[index]
-		client, err := connectServer(serverCfg)
+		client, err := connectServer(ctx, serverCfg)
 		if err != nil {
 			return switchServerMsg{err: err}
 		}
@@ -376,26 +393,24 @@ func (m Model) switchServerCmd(index int) tea.Cmd {
 	}
 }
 
-func connectServer(serverCfg config.ServerConfig) (api.Client, error) {
-	ctx := context.Background()
-
+func connectServer(ctx context.Context, serverCfg config.ServerConfig) (api.Client, error) {
 	switch serverCfg.Type {
 	case "navidrome":
 		c := navidrome.New(serverCfg)
 		if err := c.Ping(ctx); err != nil {
-			return nil, err
+			return nil, api.Wrap(api.ErrorKindNetwork, "navidrome.ping", err)
 		}
 		return c, nil
 	case "jellyfin":
 		c := jellyfin.New(serverCfg)
 		if err := c.Ping(ctx); err != nil {
-			return nil, err
+			return nil, api.Wrap(api.ErrorKindNetwork, "jellyfin.ping", err)
 		}
 		if err := c.Authenticate(ctx, serverCfg.Username, serverCfg.Password); err != nil {
-			return nil, err
+			return nil, api.Wrap(api.ErrorKindAuth, "jellyfin.authenticate", err)
 		}
 		return c, nil
 	default:
-		return nil, fmt.Errorf("unknown server type: %s", serverCfg.Type)
+		return nil, api.Wrap(api.ErrorKindConfig, "connect.type", fmt.Errorf("unknown server type: %s", serverCfg.Type))
 	}
 }
