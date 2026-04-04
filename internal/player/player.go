@@ -12,14 +12,15 @@ import (
 )
 
 type Player struct {
-	mpv     *mpv.Mpv
-	queue   []models.Track
-	current int
-	state   models.PlayerState
-	volume  int
-	mu      sync.Mutex
-	done    chan struct{}
-	ended   chan struct{}
+	mpv       *mpv.Mpv
+	queue     []models.Track
+	current   int
+	state     models.PlayerState
+	pausedPos float64
+	volume    int
+	mu        sync.Mutex
+	done      chan struct{}
+	ended     chan struct{}
 }
 
 func New() (*Player, error) {
@@ -81,11 +82,13 @@ func (p *Player) Play(track models.Track) error {
 
 	p.queue = []models.Track{track}
 	p.current = 0
+	p.pausedPos = 0
 
 	if err := p.mpv.Command([]string{"loadfile", track.StreamURL, "replace"}); err != nil {
 		logger.Get().Error("Player loadfile failed: %v", err)
 		return fmt.Errorf("loadfile: %w", err)
 	}
+	p.mpv.SetPropertyString("pause", "no")
 
 	p.state = models.StatePlaying
 	return nil
@@ -105,11 +108,13 @@ func (p *Player) PlayQueue(tracks []models.Track, startIdx int) error {
 
 	p.queue = tracks
 	p.current = startIdx
+	p.pausedPos = 0
 
 	if err := p.mpv.Command([]string{"loadfile", tracks[startIdx].StreamURL, "replace"}); err != nil {
 		logger.Get().Error("Player queue loadfile failed: %v", err)
 		return fmt.Errorf("loadfile: %w", err)
 	}
+	p.mpv.SetPropertyString("pause", "no")
 
 	p.state = models.StatePlaying
 	return nil
@@ -123,6 +128,11 @@ func (p *Player) Pause() error {
 		return nil
 	}
 
+	posStr := p.mpv.GetPropertyString("time-pos")
+	p.pausedPos = 0
+	if posStr != "" {
+		_, _ = fmt.Sscanf(posStr, "%f", &p.pausedPos)
+	}
 	p.mpv.SetPropertyString("pause", "yes")
 	p.state = models.StatePaused
 	return nil
@@ -136,7 +146,22 @@ func (p *Player) Resume() error {
 		return nil
 	}
 
+	if p.current >= 0 && p.current < len(p.queue) {
+		track := p.queue[p.current]
+		if track.StreamURL != "" {
+			if err := p.mpv.Command([]string{"loadfile", track.StreamURL, "replace"}); err != nil {
+				logger.Get().Error("Resume reload failed, falling back to unpause: %v", err)
+			} else if p.pausedPos > 0 {
+				_ = p.mpv.Command([]string{"seek", fmt.Sprintf("%.3f", p.pausedPos), "absolute+exact"})
+				time.Sleep(150 * time.Millisecond)
+				_ = p.mpv.Command([]string{"seek", fmt.Sprintf("%.3f", p.pausedPos), "absolute+exact"})
+			}
+		}
+	}
+
 	p.mpv.SetPropertyString("pause", "no")
+	p.pausedPos = 0
+
 	p.state = models.StatePlaying
 	return nil
 }
@@ -162,6 +187,9 @@ func (p *Player) Stop() error {
 	defer p.mu.Unlock()
 
 	p.mpv.Command([]string{"stop"})
+	p.queue = nil
+	p.current = 0
+	p.pausedPos = 0
 	p.state = models.StateStopped
 	return nil
 }
@@ -179,10 +207,12 @@ func (p *Player) Next() error {
 	}
 
 	p.current++
+	p.pausedPos = 0
 
 	if err := p.mpv.Command([]string{"loadfile", p.queue[p.current].StreamURL, "replace"}); err != nil {
 		return fmt.Errorf("loadfile: %w", err)
 	}
+	p.mpv.SetPropertyString("pause", "no")
 
 	p.state = models.StatePlaying
 	return nil
@@ -201,10 +231,12 @@ func (p *Player) Previous() error {
 	}
 
 	p.current--
+	p.pausedPos = 0
 
 	if err := p.mpv.Command([]string{"loadfile", p.queue[p.current].StreamURL, "replace"}); err != nil {
 		return fmt.Errorf("loadfile: %w", err)
 	}
+	p.mpv.SetPropertyString("pause", "no")
 
 	p.state = models.StatePlaying
 	return nil
@@ -314,7 +346,9 @@ func (p *Player) Monitor(onTrackEnd func()) {
 			p.mu.Lock()
 			if p.current < len(p.queue)-1 {
 				p.current++
+				p.pausedPos = 0
 				p.mpv.Command([]string{"loadfile", p.queue[p.current].StreamURL, "replace"})
+				p.mpv.SetPropertyString("pause", "no")
 				p.state = models.StatePlaying
 			} else {
 				p.state = models.StateStopped

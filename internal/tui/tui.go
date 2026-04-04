@@ -12,6 +12,7 @@ import (
 	"github.com/codila125/musica/internal/api/jellyfin"
 	"github.com/codila125/musica/internal/api/navidrome"
 	"github.com/codila125/musica/internal/config"
+	"github.com/codila125/musica/internal/models"
 	"github.com/codila125/musica/internal/player"
 	"github.com/codila125/musica/internal/tui/views"
 )
@@ -141,6 +142,16 @@ func (m Model) View() string {
 	footer := ""
 	if len(m.servers) > 0 {
 		footer = fmt.Sprintf("\n[%s] tab: switch views, s: switch server, q: quit", m.servers[m.currentServer].Name)
+		if track := m.player.CurrentTrack(); track != nil {
+			state := "stopped"
+			switch m.player.State() {
+			case models.StatePlaying:
+				state = "playing"
+			case models.StatePaused:
+				state = "paused"
+			}
+			footer += fmt.Sprintf("\nNow: %s - %s | state=%s | source=%s", track.Title, track.Artist, state, m.servers[m.currentServer].Name)
+		}
 		if m.status != "" {
 			footer += "\n" + m.status
 		}
