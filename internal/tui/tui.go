@@ -48,7 +48,6 @@ type Model struct {
 // Colors
 var (
 	colorPurple    = lipgloss.Color("93")
-	colorDarkBg    = lipgloss.Color("234")
 	colorLightText = lipgloss.Color("230")
 	colorDimText   = lipgloss.Color("244")
 	colorYellow    = lipgloss.Color("226")
@@ -64,14 +63,12 @@ var (
 	mainFrameStyle = lipgloss.NewStyle().
 			Border(lipgloss.DoubleBorder()).
 			BorderForeground(colorPurple).
-			Foreground(colorLightText).
-			Background(colorDarkBg)
+			Foreground(colorLightText)
 
 	tabButtonStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(colorDimText).
 			Foreground(colorDimText).
-			Background(colorDarkBg).
 			Align(lipgloss.Center).
 			Padding(0, 1)
 
@@ -79,7 +76,6 @@ var (
 				Border(lipgloss.RoundedBorder()).
 				BorderForeground(colorRed).
 				Foreground(colorLightText).
-				Background(lipgloss.Color("52")).
 				Align(lipgloss.Center).
 				Padding(0, 1).
 				Bold(true)
@@ -268,11 +264,8 @@ func (m Model) renderTabBar(w int) string {
 				label = "○ " + name
 			}
 		} else {
-			// Inactive tab with subtle red blinking
+			// Inactive tab is static
 			style = tabButtonStyle.Copy().Width(tabW)
-			if m.blinkOn {
-				style = style.BorderForeground(colorRedDim)
-			}
 			label = "  " + name
 		}
 
@@ -297,6 +290,7 @@ func (m Model) renderContent(w, h int) string {
 	return lipgloss.NewStyle().
 		Width(w).
 		Height(h).
+		Align(lipgloss.Left, lipgloss.Top).
 		Render(content)
 }
 

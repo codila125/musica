@@ -6,7 +6,6 @@ import "github.com/charmbracelet/lipgloss"
 var (
 	// Main colors
 	colorPurpleBorder = lipgloss.Color("93")
-	colorDarkBg       = lipgloss.Color("234")
 	colorLightText    = lipgloss.Color("230")
 	colorDimText      = lipgloss.Color("244")
 	colorYellowTitle  = lipgloss.Color("226")
@@ -23,7 +22,6 @@ var (
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(colorPurpleBorder).
 			Foreground(colorLightText).
-			Background(colorDarkBg).
 			Padding(0, 1)
 
 	retroTitleStyle = lipgloss.NewStyle().
