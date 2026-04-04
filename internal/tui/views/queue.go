@@ -12,7 +12,7 @@ import (
 )
 
 type QueueModel struct {
-	player *player.Player
+	player PlayerService
 	width  int
 	height int
 	cursor int
@@ -22,6 +22,10 @@ func NewQueueModel(pl *player.Player) QueueModel {
 	return QueueModel{
 		player: pl,
 	}
+}
+
+func NewQueueModelWithService(pl PlayerService) QueueModel {
+	return QueueModel{player: pl}
 }
 
 func (m QueueModel) Init() tea.Cmd {

@@ -16,7 +16,7 @@ import (
 
 type BrowseModel struct {
 	apiClient api.Client
-	player    *player.Player
+	player    PlayerService
 
 	tracks    []models.Track
 	cursor    int
@@ -34,6 +34,15 @@ type browseTracksMsg struct {
 }
 
 func NewBrowseModel(client api.Client, pl *player.Player) BrowseModel {
+	return BrowseModel{
+		apiClient: client,
+		player:    pl,
+		loading:   true,
+		loadReqID: nextRequestID(),
+	}
+}
+
+func NewBrowseModelWithService(client api.Client, pl PlayerService) BrowseModel {
 	return BrowseModel{
 		apiClient: client,
 		player:    pl,

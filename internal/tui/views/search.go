@@ -25,7 +25,7 @@ const (
 
 type SearchModel struct {
 	apiClient   api.Client
-	player      *player.Player
+	player      PlayerService
 	input       textinput.Model
 	spinner     spinner.Model
 	state       SearchState
@@ -46,6 +46,26 @@ type searchResultsMsg struct {
 }
 
 func NewSearchModel(client api.Client, pl *player.Player) SearchModel {
+	ti := textinput.New()
+	ti.Placeholder = "Type to search..."
+	ti.Focus()
+	ti.CharLimit = 100
+	ti.Width = 50
+
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+
+	return SearchModel{
+		apiClient:   client,
+		player:      pl,
+		input:       ti,
+		spinner:     s,
+		state:       SearchInput,
+		searchReqID: nextRequestID(),
+	}
+}
+
+func NewSearchModelWithService(client api.Client, pl PlayerService) SearchModel {
 	ti := textinput.New()
 	ti.Placeholder = "Type to search..."
 	ti.Focus()
