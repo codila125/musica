@@ -3,8 +3,10 @@
 package player
 
 import (
+	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	mpv "github.com/gen2brain/go-mpv"
@@ -23,7 +25,12 @@ type Player struct {
 	mu        sync.Mutex
 	done      chan struct{}
 	ended     chan struct{}
+	eventWG   sync.WaitGroup
+	closeOnce sync.Once
+	closing   atomic.Bool
 }
+
+var errPlayerClosing = errors.New("player is closing")
 
 func New() (*Player, error) {
 	m := mpv.New()
@@ -47,15 +54,30 @@ func New() (*Player, error) {
 		ended:  make(chan struct{}, 1),
 	}
 
+	p.eventWG.Add(1)
 	go p.eventLoop()
 
 	return p, nil
 }
 
 func (p *Player) eventLoop() {
+	defer p.eventWG.Done()
+
 	for {
+		if p.closing.Load() {
+			return
+		}
+
 		ev := p.mpv.WaitEvent(1)
-		if ev == nil || ev.EventID == mpv.EventShutdown {
+
+		if p.closing.Load() {
+			return
+		}
+
+		if ev == nil {
+			continue
+		}
+		if ev.EventID == mpv.EventShutdown {
 			return
 		}
 		if ev.EventID == mpv.EventEnd {
@@ -74,6 +96,10 @@ func (p *Player) eventLoop() {
 }
 
 func (p *Player) Play(track models.Track) error {
+	if p.closing.Load() {
+		return errPlayerClosing
+	}
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -97,6 +123,10 @@ func (p *Player) Play(track models.Track) error {
 }
 
 func (p *Player) PlayQueue(tracks []models.Track, startIdx int) error {
+	if p.closing.Load() {
+		return errPlayerClosing
+	}
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -123,6 +153,10 @@ func (p *Player) PlayQueue(tracks []models.Track, startIdx int) error {
 }
 
 func (p *Player) Pause() error {
+	if p.closing.Load() {
+		return errPlayerClosing
+	}
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -141,6 +175,10 @@ func (p *Player) Pause() error {
 }
 
 func (p *Player) Resume() error {
+	if p.closing.Load() {
+		return errPlayerClosing
+	}
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -169,6 +207,10 @@ func (p *Player) Resume() error {
 }
 
 func (p *Player) TogglePause() error {
+	if p.closing.Load() {
+		return errPlayerClosing
+	}
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -185,6 +227,10 @@ func (p *Player) TogglePause() error {
 }
 
 func (p *Player) Stop() error {
+	if p.closing.Load() {
+		return errPlayerClosing
+	}
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -200,6 +246,10 @@ func (p *Player) Stop() error {
 }
 
 func (p *Player) Next() error {
+	if p.closing.Load() {
+		return errPlayerClosing
+	}
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -229,6 +279,10 @@ func (p *Player) Next() error {
 }
 
 func (p *Player) Previous() error {
+	if p.closing.Load() {
+		return errPlayerClosing
+	}
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -253,6 +307,10 @@ func (p *Player) Previous() error {
 }
 
 func (p *Player) SetVolume(vol int) {
+	if p.closing.Load() {
+		return
+	}
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -268,6 +326,10 @@ func (p *Player) SetVolume(vol int) {
 }
 
 func (p *Player) Seek(seconds int) error {
+	if p.closing.Load() {
+		return errPlayerClosing
+	}
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -275,6 +337,10 @@ func (p *Player) Seek(seconds int) error {
 }
 
 func (p *Player) Position() (int, error) {
+	if p.closing.Load() {
+		return 0, errPlayerClosing
+	}
+
 	val := p.mpv.GetPropertyString("time-pos")
 	if val == "" {
 		return 0, nil
@@ -289,6 +355,10 @@ func (p *Player) Position() (int, error) {
 }
 
 func (p *Player) Duration() (int, error) {
+	if p.closing.Load() {
+		return 0, errPlayerClosing
+	}
+
 	val := p.mpv.GetPropertyString("duration")
 	if val == "" {
 		return 0, nil
@@ -347,6 +417,10 @@ func (p *Player) QueueHistory() []models.Track {
 }
 
 func (p *Player) AppendToQueue(track models.Track) error {
+	if p.closing.Load() {
+		return errPlayerClosing
+	}
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -381,11 +455,16 @@ func (p *Player) Ended() <-chan struct{} {
 }
 
 func (p *Player) Close() error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.closeOnce.Do(func() {
+		p.closing.Store(true)
+		close(p.done)
+		p.eventWG.Wait()
 
-	p.mpv.TerminateDestroy()
-	close(p.done)
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		p.mpv.TerminateDestroy()
+	})
+
 	return nil
 }
 

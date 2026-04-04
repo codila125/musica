@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/codila125/musica/internal/config"
@@ -66,6 +67,10 @@ func runSetup() error {
 
 	if len(cfg.Servers) == 0 {
 		cfg.DefaultServer = name
+	}
+
+	if slices.ContainsFunc(cfg.Servers, func(s config.ServerConfig) bool { return s.Name == name }) {
+		return fmt.Errorf("server with name %q already exists", name)
 	}
 
 	cfg.Servers = append(cfg.Servers, server)

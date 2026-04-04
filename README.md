@@ -143,6 +143,10 @@ Reliability/fault-injection notes are in:
 
 - `docs/reliability.md`
 
+Config/security validation notes are in:
+
+- `docs/config.md`
+
 ## License
 
 No license file is currently present in this repository.
