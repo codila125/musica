@@ -168,13 +168,10 @@ func (m BrowseModel) View() string {
 		return boxStyle.Render(content)
 	}
 
-	// Calculate visible rows (matching queue view logic)
+	// Calculate visible rows
 	visibleRows := h - 8
 	if visibleRows < 3 {
 		visibleRows = 3
-	}
-	if visibleRows > 10 {
-		visibleRows = 10
 	}
 
 	start := 0

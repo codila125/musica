@@ -106,9 +106,6 @@ func (m QueueModel) View() string {
 	if visibleRows < 3 {
 		visibleRows = 3
 	}
-	if visibleRows > 10 {
-		visibleRows = 10
-	}
 
 	start := 0
 	if m.cursor >= visibleRows {
