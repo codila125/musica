@@ -64,27 +64,15 @@ func (m QueueModel) Update(msg tea.Msg) (QueueModel, tea.Cmd) {
 }
 
 func (m QueueModel) View() string {
-	w := m.width
-	h := m.height
-	if w < 40 {
-		w = 40
-	}
-	if h < 10 {
-		h = 10
-	}
+	w, h := normalizeViewSize(m.width, m.height)
 
 	queue := m.player.Queue()
 	current := m.player.CurrentIndex()
 
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(colorPurpleBorder).
-		Padding(0, 1).
-		Width(w - 4).
-		Height(h - 2)
+	boxStyle := listBoxStyle(w, h)
 
 	title := retroTitleStyle.Render("◎ TAPE QUEUE")
-	divider := retroCassetteStyle.Render(strings.Repeat("─", w-8))
+	divider := listDivider(w - 8)
 	keys := retroSubtleStyle.Render("[p]lay/pause  [j/k]scroll")
 
 	if queue == nil || len(queue) == 0 {
@@ -102,10 +90,7 @@ func (m QueueModel) View() string {
 	}
 
 	// Calculate visible rows
-	visibleRows := h - 8
-	if visibleRows < 3 {
-		visibleRows = 3
-	}
+	visibleRows := calcVisibleRows(h, 8)
 
 	start := 0
 	if m.cursor >= visibleRows {
@@ -120,26 +105,16 @@ func (m QueueModel) View() string {
 
 	// Column headers
 	innerW := w - 8
-	nameW := innerW - 91
-	if nameW < 10 {
-		nameW = 10
-	}
-	header := retroSubtleStyle.Render("  # ") +
-		retroColumnHeaderStyle.Render(padRight("NAME", nameW)) +
-		retroSubtleStyle.Render(" ") +
-		retroColumnHeaderStyle.Render(padRight("ARTIST", 35)) +
-		retroSubtleStyle.Render(" ") +
-		retroColumnHeaderStyle.Render(padRight("ALBUM", 40)) +
-		retroSubtleStyle.Render(" ") +
-		retroColumnHeaderStyle.Render(padRight("DURATION", 8))
+	nameW := trackNameWidth(innerW)
+	header := trackTableHeader(nameW)
 	lines = append(lines, header)
 
 	for i := start; i < end; i++ {
 		t := queue[i]
 		num := fmt.Sprintf("%02d", i+1)
 		name := truncateStr(t.Title, nameW)
-		artist := truncateStr(t.Artist, 35)
-		album := truncateStr(t.Album, 40)
+		artist := truncateStr(t.Artist, artistColWidth)
+		album := truncateStr(t.Album, albumColWidth)
 		dur := formatDuration(t.Duration)
 
 		var line string
@@ -147,29 +122,29 @@ func (m QueueModel) View() string {
 			line = retroCurrentStyle.Render(fmt.Sprintf("▶ %s ", num)) +
 				retroCurrentStyle.Render(padRight(name, nameW)) +
 				retroSubtleStyle.Render(" ") +
-				retroSubtleStyle.Render(padRight(artist, 35)) +
+				retroSubtleStyle.Render(padRight(artist, artistColWidth)) +
 				retroSubtleStyle.Render(" ") +
-				retroSubtleStyle.Render(padRight(album, 40)) +
+				retroSubtleStyle.Render(padRight(album, albumColWidth)) +
 				retroSubtleStyle.Render(" ") +
-				lipgloss.NewStyle().Foreground(colorGreenSelect).Render(padRight(dur, 8))
+				lipgloss.NewStyle().Foreground(colorGreenSelect).Render(padRight(dur, durationColWidth))
 		} else if i == m.cursor {
 			line = retroSelectedStyle.Render(fmt.Sprintf("► %s ", num)) +
 				retroSelectedStyle.Render(padRight(name, nameW)) +
 				retroSubtleStyle.Render(" ") +
-				retroSubtleStyle.Render(padRight(artist, 35)) +
+				retroSubtleStyle.Render(padRight(artist, artistColWidth)) +
 				retroSubtleStyle.Render(" ") +
-				retroSubtleStyle.Render(padRight(album, 40)) +
+				retroSubtleStyle.Render(padRight(album, albumColWidth)) +
 				retroSubtleStyle.Render(" ") +
-				lipgloss.NewStyle().Foreground(colorAmber).Render(padRight(dur, 8))
+				lipgloss.NewStyle().Foreground(colorAmber).Render(padRight(dur, durationColWidth))
 		} else {
 			line = retroSubtleStyle.Render(fmt.Sprintf("  %s ", num)) +
 				lipgloss.NewStyle().Foreground(colorLightText).Render(padRight(name, nameW)) +
 				retroSubtleStyle.Render(" ") +
-				retroSubtleStyle.Render(padRight(artist, 35)) +
+				retroSubtleStyle.Render(padRight(artist, artistColWidth)) +
 				retroSubtleStyle.Render(" ") +
-				retroSubtleStyle.Render(padRight(album, 40)) +
+				retroSubtleStyle.Render(padRight(album, albumColWidth)) +
 				retroSubtleStyle.Render(" ") +
-				lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(padRight(dur, 8))
+				lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(padRight(dur, durationColWidth))
 		}
 		lines = append(lines, line)
 	}

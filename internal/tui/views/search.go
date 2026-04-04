@@ -164,26 +164,14 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 }
 
 func (m SearchModel) View() string {
-	w := m.width
-	h := m.height
-	if w < 40 {
-		w = 40
-	}
-	if h < 10 {
-		h = 10
-	}
+	w, h := normalizeViewSize(m.width, m.height)
 
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(colorPurpleBorder).
-		Padding(0, 1).
-		Width(w - 4).
-		Height(h - 2)
+	boxStyle := listBoxStyle(w, h)
 
 	if m.err != nil {
 		content := lipgloss.JoinVertical(lipgloss.Left,
 			retroTitleStyle.Render("◎ SEARCH"),
-			retroCassetteStyle.Render(strings.Repeat("─", w-8)),
+			listDivider(w-8),
 			"",
 			retroErrorStyle.Render("ERROR: "+m.err.Error()),
 		)
@@ -197,7 +185,7 @@ func (m SearchModel) View() string {
 	if m.loading {
 		content := lipgloss.JoinVertical(lipgloss.Left,
 			retroTitleStyle.Render("◎ SEARCH"),
-			retroCassetteStyle.Render(strings.Repeat("─", w-8)),
+			listDivider(w-8),
 			"",
 			retroLoadingStyle.Render(m.spinner.View()+" Searching..."),
 		)
@@ -209,7 +197,7 @@ func (m SearchModel) View() string {
 
 func (m SearchModel) renderInputView(boxStyle lipgloss.Style, w int) string {
 	title := retroTitleStyle.Render("◎ SEARCH DECK")
-	divider := retroCassetteStyle.Render(strings.Repeat("─", w-8))
+	divider := listDivider(w - 8)
 	keys := retroSubtleStyle.Render("[enter]search  [esc]back")
 
 	searchBox := lipgloss.NewStyle().
@@ -234,8 +222,8 @@ func (m SearchModel) renderInputView(boxStyle lipgloss.Style, w int) string {
 
 func (m SearchModel) renderResultsView(boxStyle lipgloss.Style, w, h int) string {
 	title := retroTitleStyle.Render("◎ SEARCH RESULTS")
-	divider := retroCassetteStyle.Render(strings.Repeat("─", w-8))
-	keys := retroSubtleStyle.Render("[tab]category [p]lay [q]ueue [esc]back")
+	divider := listDivider(w - 8)
+	keys := retroSubtleStyle.Render("[left/right]category [enter/p]play [q]ueue [esc]back")
 
 	innerW := w - 8
 
@@ -321,10 +309,7 @@ func (m SearchModel) renderTracks(w, h int) string {
 		return retroSubtleStyle.Render("  No tracks found")
 	}
 
-	visibleRows := h - 12
-	if visibleRows < 3 {
-		visibleRows = 3
-	}
+	visibleRows := calcVisibleRows(h, 12)
 
 	start := 0
 	if m.cursor >= visibleRows {
@@ -335,30 +320,20 @@ func (m SearchModel) renderTracks(w, h int) string {
 		end = len(m.results.Tracks)
 	}
 
-	nameW := w - 91
-	if nameW < 10 {
-		nameW = 10
-	}
+	nameW := trackNameWidth(w)
 
 	var lines []string
 
 	// Column headers
-	header := retroSubtleStyle.Render("  # ") +
-		retroColumnHeaderStyle.Render(padRight("NAME", nameW)) +
-		retroSubtleStyle.Render(" ") +
-		retroColumnHeaderStyle.Render(padRight("ARTIST", 35)) +
-		retroSubtleStyle.Render(" ") +
-		retroColumnHeaderStyle.Render(padRight("ALBUM", 40)) +
-		retroSubtleStyle.Render(" ") +
-		retroColumnHeaderStyle.Render(padRight("DURATION", 8))
+	header := trackTableHeader(nameW)
 	lines = append(lines, header)
 
 	for i := start; i < end; i++ {
 		t := m.results.Tracks[i]
 		num := fmt.Sprintf("%02d", i+1)
 		name := truncateStr(t.Title, nameW)
-		artist := truncateStr(t.Artist, 35)
-		album := truncateStr(t.Album, 40)
+		artist := truncateStr(t.Artist, artistColWidth)
+		album := truncateStr(t.Album, albumColWidth)
 		dur := formatDuration(t.Duration)
 
 		var line string
@@ -366,20 +341,20 @@ func (m SearchModel) renderTracks(w, h int) string {
 			line = retroSelectedStyle.Render(fmt.Sprintf("▶ %s ", num)) +
 				retroSelectedStyle.Render(padRight(name, nameW)) +
 				retroSubtleStyle.Render(" ") +
-				retroSubtleStyle.Render(padRight(artist, 35)) +
+				retroSubtleStyle.Render(padRight(artist, artistColWidth)) +
 				retroSubtleStyle.Render(" ") +
-				retroSubtleStyle.Render(padRight(album, 40)) +
+				retroSubtleStyle.Render(padRight(album, albumColWidth)) +
 				retroSubtleStyle.Render(" ") +
-				lipgloss.NewStyle().Foreground(colorAmber).Render(padRight(dur, 8))
+				lipgloss.NewStyle().Foreground(colorAmber).Render(padRight(dur, durationColWidth))
 		} else {
 			line = retroSubtleStyle.Render(fmt.Sprintf("  %s ", num)) +
 				lipgloss.NewStyle().Foreground(colorLightText).Render(padRight(name, nameW)) +
 				retroSubtleStyle.Render(" ") +
-				retroSubtleStyle.Render(padRight(artist, 35)) +
+				retroSubtleStyle.Render(padRight(artist, artistColWidth)) +
 				retroSubtleStyle.Render(" ") +
-				retroSubtleStyle.Render(padRight(album, 40)) +
+				retroSubtleStyle.Render(padRight(album, albumColWidth)) +
 				retroSubtleStyle.Render(" ") +
-				lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(padRight(dur, 8))
+				lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(padRight(dur, durationColWidth))
 		}
 		lines = append(lines, line)
 	}
@@ -393,10 +368,7 @@ func (m SearchModel) renderAlbums(w, h int) string {
 		return retroSubtleStyle.Render("  No albums found")
 	}
 
-	visibleRows := h - 12
-	if visibleRows < 3 {
-		visibleRows = 3
-	}
+	visibleRows := calcVisibleRows(h, 12)
 
 	start := 0
 	if m.cursor >= visibleRows {
@@ -435,10 +407,7 @@ func (m SearchModel) renderArtists(w, h int) string {
 		return retroSubtleStyle.Render("  No artists found")
 	}
 
-	visibleRows := h - 12
-	if visibleRows < 3 {
-		visibleRows = 3
-	}
+	visibleRows := calcVisibleRows(h, 12)
 
 	start := 0
 	if m.cursor >= visibleRows {

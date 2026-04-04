@@ -24,7 +24,6 @@ type BrowseModel struct {
 	height  int
 	loading bool
 	err     error
-	debug   string
 }
 
 func NewBrowseModel(client api.Client, pl *player.Player) BrowseModel {
@@ -63,21 +62,18 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 						m.err = fmt.Errorf("pause: %w", err)
 					} else {
 						m.err = nil
-						m.debug = "Paused"
 					}
 				} else if cur != nil && cur.ID == m.tracks[m.cursor].ID && m.player.State() == models.StatePaused {
 					if err := m.player.Resume(); err != nil {
 						m.err = fmt.Errorf("resume: %w", err)
 					} else {
 						m.err = nil
-						m.debug = "Resumed"
 					}
 				} else {
 					if err := m.player.Play(m.tracks[m.cursor]); err != nil {
 						m.err = fmt.Errorf("play: %w", err)
 					} else {
 						m.err = nil
-						m.debug = "Playing: " + m.tracks[m.cursor].Title
 					}
 				}
 			}
@@ -90,7 +86,6 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 					m.err = fmt.Errorf("queue: %w", err)
 				} else {
 					m.err = nil
-					m.debug = "Queued: " + m.tracks[m.cursor].Title
 				}
 			}
 		}
@@ -100,39 +95,24 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 		m.cursor = 0
 		m.loading = false
 		m.err = nil
-		m.debug = fmt.Sprintf("Loaded %d tracks", len(msg))
 
 	case error:
 		m.loading = false
 		m.err = msg
-		m.debug = msg.Error()
 	}
 
 	return m, nil
 }
 
 func (m BrowseModel) View() string {
-	w := m.width
-	h := m.height
-	if w < 40 {
-		w = 40
-	}
-	if h < 10 {
-		h = 10
-	}
+	w, h := normalizeViewSize(m.width, m.height)
 
-	// Single box like queue view
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(colorPurpleBorder).
-		Padding(0, 1).
-		Width(w - 4).
-		Height(h - 2)
+	boxStyle := listBoxStyle(w, h)
 
 	if m.err != nil {
 		content := lipgloss.JoinVertical(lipgloss.Left,
 			retroTitleStyle.Render("◎ TRACK LIBRARY"),
-			retroCassetteStyle.Render(strings.Repeat("─", w-8)),
+			listDivider(w-8),
 			"",
 			retroErrorStyle.Render("ERROR: "+m.err.Error()),
 		)
@@ -142,7 +122,7 @@ func (m BrowseModel) View() string {
 	if m.loading {
 		content := lipgloss.JoinVertical(lipgloss.Left,
 			retroTitleStyle.Render("◎ TRACK LIBRARY"),
-			retroCassetteStyle.Render(strings.Repeat("─", w-8)),
+			listDivider(w-8),
 			"",
 			retroLoadingStyle.Render("Loading tracks..."),
 		)
@@ -151,7 +131,7 @@ func (m BrowseModel) View() string {
 
 	innerW := w - 8
 	title := retroTitleStyle.Render("◎ TRACK LIBRARY")
-	divider := retroCassetteStyle.Render(strings.Repeat("─", innerW))
+	divider := listDivider(innerW)
 	keys := retroSubtleStyle.Render("[p]lay/pause  [q]ueue  [r]efresh  [j/k]scroll")
 
 	if len(m.tracks) == 0 {
@@ -169,10 +149,7 @@ func (m BrowseModel) View() string {
 	}
 
 	// Calculate visible rows
-	visibleRows := h - 8
-	if visibleRows < 3 {
-		visibleRows = 3
-	}
+	visibleRows := calcVisibleRows(h, 8)
 
 	start := 0
 	if m.cursor >= visibleRows {
@@ -190,26 +167,16 @@ func (m BrowseModel) View() string {
 	lines = append(lines, cassetteStatus)
 
 	// Column headers
-	nameW := innerW - 91
-	if nameW < 10 {
-		nameW = 10
-	}
-	header := retroSubtleStyle.Render("  # ") +
-		retroColumnHeaderStyle.Render(padRight("NAME", nameW)) +
-		retroSubtleStyle.Render(" ") +
-		retroColumnHeaderStyle.Render(padRight("ARTIST", 35)) +
-		retroSubtleStyle.Render(" ") +
-		retroColumnHeaderStyle.Render(padRight("ALBUM", 40)) +
-		retroSubtleStyle.Render(" ") +
-		retroColumnHeaderStyle.Render(padRight("DURATION", 8))
+	nameW := trackNameWidth(innerW)
+	header := trackTableHeader(nameW)
 	lines = append(lines, header)
 
 	for i := start; i < end; i++ {
 		t := m.tracks[i]
 		num := fmt.Sprintf("%02d", i+1)
 		name := truncateStr(t.Title, nameW)
-		artist := truncateStr(t.Artist, 35)
-		album := truncateStr(t.Album, 40)
+		artist := truncateStr(t.Artist, artistColWidth)
+		album := truncateStr(t.Album, albumColWidth)
 		dur := formatDuration(t.Duration)
 
 		var line string
@@ -217,20 +184,20 @@ func (m BrowseModel) View() string {
 			line = retroSelectedStyle.Render(fmt.Sprintf("▶ %s ", num)) +
 				retroSelectedStyle.Render(padRight(name, nameW)) +
 				retroSubtleStyle.Render(" ") +
-				retroSubtleStyle.Render(padRight(artist, 35)) +
+				retroSubtleStyle.Render(padRight(artist, artistColWidth)) +
 				retroSubtleStyle.Render(" ") +
-				retroSubtleStyle.Render(padRight(album, 40)) +
+				retroSubtleStyle.Render(padRight(album, albumColWidth)) +
 				retroSubtleStyle.Render(" ") +
-				lipgloss.NewStyle().Foreground(colorAmber).Render(padRight(dur, 8))
+				lipgloss.NewStyle().Foreground(colorAmber).Render(padRight(dur, durationColWidth))
 		} else {
 			line = retroSubtleStyle.Render(fmt.Sprintf("  %s ", num)) +
 				lipgloss.NewStyle().Foreground(colorLightText).Render(padRight(name, nameW)) +
 				retroSubtleStyle.Render(" ") +
-				retroSubtleStyle.Render(padRight(artist, 35)) +
+				retroSubtleStyle.Render(padRight(artist, artistColWidth)) +
 				retroSubtleStyle.Render(" ") +
-				retroSubtleStyle.Render(padRight(album, 40)) +
+				retroSubtleStyle.Render(padRight(album, albumColWidth)) +
 				retroSubtleStyle.Render(" ") +
-				lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(padRight(dur, 8))
+				lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(padRight(dur, durationColWidth))
 		}
 		lines = append(lines, line)
 	}
