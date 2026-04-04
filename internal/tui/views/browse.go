@@ -100,7 +100,7 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 		m.cursor = 0
 		m.loading = false
 		m.err = nil
-		m.debug = fmt.Sprintf("Loaded %d recent tracks", len(msg))
+		m.debug = fmt.Sprintf("Loaded %d tracks", len(msg))
 
 	case error:
 		m.loading = false
@@ -112,127 +112,180 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 }
 
 func (m BrowseModel) View() string {
+	w := m.width
+	h := m.height
+	if w < 40 {
+		w = 40
+	}
+	if h < 10 {
+		h = 10
+	}
+
+	// Single box like queue view
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(colorPurpleBorder).
+		Padding(0, 1).
+		Width(w - 4).
+		Height(h - 2)
+
 	if m.err != nil {
-		return retroPanelForWidth(m.width).Render(retroErrorStyle.Render("Error: " + m.err.Error()))
+		content := lipgloss.JoinVertical(lipgloss.Left,
+			retroTitleStyle.Render("◎ TRACK LIBRARY"),
+			retroCassetteStyle.Render(strings.Repeat("─", w-8)),
+			"",
+			retroErrorStyle.Render("ERROR: "+m.err.Error()),
+		)
+		return boxStyle.Render(content)
 	}
+
 	if m.loading {
-		return retroPanelForWidth(m.width).Render(retroLoadingStyle.Render("Loading recent additions..."))
+		content := lipgloss.JoinVertical(lipgloss.Left,
+			retroTitleStyle.Render("◎ TRACK LIBRARY"),
+			retroCassetteStyle.Render(strings.Repeat("─", w-8)),
+			"",
+			retroLoadingStyle.Render("Loading tracks..."),
+		)
+		return boxStyle.Render(content)
 	}
 
-	title := retroTitleStyle.Render("RETRO TAPE PLAYER") + " " + retroSubtleStyle.Render("(enter/p play, q queue, r refresh)")
-	divider := retroSubtleStyle.Render(strings.Repeat("=", 68))
-
-	contentWidth := 72
-	if m.width > 0 {
-		contentWidth = m.width - 12
-	}
-	if contentWidth < 40 {
-		contentWidth = 40
-	}
-
-	leftWidth := (contentWidth * 58) / 100
-	if leftWidth < 24 {
-		leftWidth = 24
-	}
-	rightWidth := contentWidth - leftWidth - 1
-	if rightWidth < 15 {
-		rightWidth = 15
-		leftWidth = contentWidth - rightWidth - 1
-	}
-
-	listPanel := lipgloss.NewStyle().Width(leftWidth).MaxWidth(leftWidth).Render(m.renderTrackList())
-	tapePanel := lipgloss.NewStyle().Width(rightWidth).MaxWidth(rightWidth).Render(m.renderTapeDeck())
-	content := lipgloss.JoinHorizontal(lipgloss.Top, listPanel, " ", tapePanel)
-
-	return retroPanelForWidth(m.width).Render(title + "\n" + divider + "\n" + content)
-}
-
-func (m BrowseModel) renderTrackList() string {
-	lines := []string{retroTitleStyle.Render("TRACK LIST")}
+	innerW := w - 8
+	title := retroTitleStyle.Render("◎ TRACK LIBRARY")
+	divider := retroCassetteStyle.Render(strings.Repeat("─", innerW))
+	keys := retroSubtleStyle.Render("[p]lay/pause  [q]ueue  [r]efresh  [j/k]scroll")
 
 	if len(m.tracks) == 0 {
-		lines = append(lines, retroSubtleStyle.Render("No tracks found"))
-		return strings.Join(lines, "\n")
+		content := lipgloss.JoinVertical(lipgloss.Left,
+			title,
+			divider,
+			"",
+			retroSubtleStyle.Render("  No tracks found"),
+			retroSubtleStyle.Render("  Press [r] to refresh"),
+			"",
+			divider,
+			keys,
+		)
+		return boxStyle.Render(content)
 	}
 
-	visibleRows := 10
+	// Calculate visible rows (matching queue view logic)
+	visibleRows := h - 8
+	if visibleRows < 3 {
+		visibleRows = 3
+	}
+	if visibleRows > 10 {
+		visibleRows = 10
+	}
+
 	start := 0
 	if m.cursor >= visibleRows {
 		start = m.cursor - visibleRows + 1
-	}
-	if start < 0 {
-		start = 0
 	}
 	end := start + visibleRows
 	if end > len(m.tracks) {
 		end = len(m.tracks)
 	}
 
+	lines := []string{title, divider}
+
+	// Cassette animation indicator (compact, inline)
+	cassetteStatus := m.renderCompactCassette()
+	lines = append(lines, cassetteStatus)
+
 	for i := start; i < end; i++ {
 		t := m.tracks[i]
-		prefix := retroSubtleStyle.Render("  ")
+		num := fmt.Sprintf("%02d", i+1)
+		name := truncateStr(t.Title, innerW-20)
+		artist := truncateStr(t.Artist, 12)
+		dur := formatDuration(t.Duration)
+
+		var line string
 		if i == m.cursor {
-			prefix = retroSelectedStyle.Render(">> ")
+			line = retroSelectedStyle.Render(fmt.Sprintf("▶ %s %s", num, name)) +
+				retroSubtleStyle.Render(" "+artist+" ") +
+				lipgloss.NewStyle().Foreground(colorAmber).Render(dur)
+		} else {
+			line = retroSubtleStyle.Render(fmt.Sprintf("  %s ", num)) +
+				lipgloss.NewStyle().Foreground(colorLightText).Render(name) +
+				retroSubtleStyle.Render(" "+artist+" ") +
+				lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(dur)
 		}
-		line := fmt.Sprintf("%s%02d %s %s", prefix, i+1, t.Title, retroSubtleStyle.Render("- "+t.Artist))
 		lines = append(lines, line)
 	}
 
-	lines = append(lines, "", retroSubtleStyle.Render(fmt.Sprintf("showing 10/%d (j/k to scroll)", len(m.tracks))))
-	if m.debug != "" {
-		lines = append(lines, retroSubtleStyle.Render(m.debug))
-	}
+	lines = append(lines, divider)
+	lines = append(lines, retroSubtleStyle.Render(fmt.Sprintf("  Track %d of %d", m.cursor+1, len(m.tracks))))
+	lines = append(lines, keys)
 
-	return strings.Join(lines, "\n")
+	content := strings.Join(lines, "\n")
+	return boxStyle.Render(content)
 }
 
-func (m BrowseModel) renderTapeDeck() string {
-	frames := []string{"|", "/", "-", "\\", "|", "/", "-", "\\"}
+func (m BrowseModel) renderCompactCassette() string {
 	state := m.player.State()
-	interval := 125 * time.Millisecond
-	moving := true
-	stateLabel := "STOP"
+	interval := 200 * time.Millisecond
+	moving := false
+	stateLabel := "■ STOP"
+	ledColor := colorRedDim
 
 	switch state {
 	case models.StatePlaying:
-		interval = 90 * time.Millisecond
-		stateLabel = "PLAY"
+		interval = 80 * time.Millisecond
+		stateLabel = "▶ PLAY"
+		moving = true
+		ledColor = colorGreenSelect
 	case models.StatePaused:
-		interval = 450 * time.Millisecond
-		stateLabel = "PAUSE"
-	default:
-		moving = false
+		interval = 300 * time.Millisecond
+		stateLabel = "❚❚ PAUSE"
+		moving = true
+		ledColor = colorAmber
 	}
 
-	step := 0
+	// Simple spinning reel animation
+	reels := []string{"◐", "◓", "◑", "◒"}
+	frame := 0
 	if moving {
-		step = int((time.Now().UnixNano() / int64(interval)) % int64(len(frames)))
-	}
-	l1 := frames[step]
-	l2 := frames[(step+2)%len(frames)]
-	r1 := frames[(step+4)%len(frames)]
-	r2 := frames[(step+6)%len(frames)]
-
-	deck := []string{
-		retroTitleStyle.Render("TAPE WHEELS"),
-		retroSubtleStyle.Render("    ______________   ______________"),
-		retroSubtleStyle.Render(fmt.Sprintf(`   /   %s   O   %s  \ /   %s   O   %s  \`, l1, l2, r1, r2)),
-		retroSubtleStyle.Render(fmt.Sprintf("  |      %s(%s)%s      ||      %s(%s)%s      |", l2, l1, r2, r2, r1, l1)),
-		retroSubtleStyle.Render(fmt.Sprintf("   \\__ %s ___ %s __// \\__ %s ___ %s __//", l2, l1, r2, r1)),
-		retroSubtleStyle.Render("       |_____________________________|"),
-		"",
-		retroSubtleStyle.Render("          MODE: " + stateLabel),
-		retroSubtleStyle.Render("       [PLAY] [STOP] [REW]"),
-		retroSubtleStyle.Render("        [FF]  [PAUSE] [REC]"),
+		frame = int((time.Now().UnixNano() / int64(interval)) % int64(len(reels)))
 	}
 
-	return strings.Join(deck, "\n")
+	reel := reels[frame]
+	ledStyle := lipgloss.NewStyle().Foreground(ledColor).Bold(true)
+
+	// Compact cassette: [reel]====[reel] STATUS
+	cassette := retroCassetteStyle.Render("  ╔══") +
+		ledStyle.Render(reel) +
+		retroCassetteStyle.Render("════════") +
+		ledStyle.Render(reel) +
+		retroCassetteStyle.Render("══╗ ") +
+		ledStyle.Render("● "+stateLabel)
+
+	return cassette
 }
 
 func (m BrowseModel) loadRecentTracks() tea.Msg {
-	tracks, err := m.apiClient.GetRecentTracks(context.Background(), 20)
+	tracks, err := m.apiClient.GetRecentTracks(context.Background(), 50)
 	if err != nil {
 		return err
 	}
 	return tracks
+}
+
+// Helper functions
+func truncateStr(s string, maxLen int) string {
+	if maxLen <= 0 {
+		return ""
+	}
+	if len(s) <= maxLen {
+		return s
+	}
+	if maxLen <= 3 {
+		return s[:maxLen]
+	}
+	return s[:maxLen-3] + "..."
+}
+
+func formatDuration(seconds int) string {
+	m := seconds / 60
+	s := seconds % 60
+	return fmt.Sprintf("%d:%02d", m, s)
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/codila125/musica/internal/api"
 	"github.com/codila125/musica/internal/models"
@@ -38,10 +39,10 @@ type SearchModel struct {
 
 func NewSearchModel(client api.Client, pl *player.Player) SearchModel {
 	ti := textinput.New()
-	ti.Placeholder = "Search for artists, albums, or tracks..."
+	ti.Placeholder = "Type to search..."
 	ti.Focus()
 	ti.CharLimit = 100
-	ti.Width = 60
+	ti.Width = 50
 
 	s := spinner.New()
 	s.Spinner = spinner.Dot
@@ -66,11 +67,14 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.input.Width = msg.Width - 4
+		m.input.Width = msg.Width - 10
+		if m.input.Width < 20 {
+			m.input.Width = 20
+		}
 
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "enter", "p":
+		case "enter":
 			if m.state == SearchInput {
 				query := m.input.Value()
 				if query != "" {
@@ -79,23 +83,17 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 					return m, m.search(query)
 				}
 			} else if m.state == SearchResults {
+				return m.handlePlay(), nil
+			}
+		case "p":
+			if m.state == SearchResults {
 				if m.resultType == 0 && len(m.results.Tracks) > 0 && m.cursor < len(m.results.Tracks) {
 					cur := m.player.CurrentTrack()
 					selected := m.results.Tracks[m.cursor]
 					if cur != nil && cur.ID == selected.ID && m.player.State() == models.StatePlaying {
-						if err := m.player.Pause(); err != nil {
-							m.err = fmt.Errorf("pause: %w", err)
-						} else {
-							m.err = nil
-							m.input.Placeholder = "Paused"
-						}
+						_ = m.player.Pause()
 					} else if cur != nil && cur.ID == selected.ID && m.player.State() == models.StatePaused {
-						if err := m.player.Resume(); err != nil {
-							m.err = fmt.Errorf("resume: %w", err)
-						} else {
-							m.err = nil
-							m.input.Placeholder = "Resumed"
-						}
+						_ = m.player.Resume()
 					} else {
 						return m.handlePlay(), nil
 					}
@@ -106,11 +104,6 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 				m.state = SearchInput
 				m.input.Focus()
 				return m, textinput.Blink
-			}
-		case "tab":
-			if m.state == SearchResults {
-				m.resultType = (m.resultType + 1) % 3
-				m.cursor = 0
 			}
 		}
 
@@ -147,6 +140,9 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 				if m.cursor < count-1 {
 					m.cursor++
 				}
+			case "tab":
+				m.resultType = (m.resultType + 1) % 3
+				m.cursor = 0
 			case "q":
 				if m.resultType == 0 && len(m.results.Tracks) > 0 && m.cursor < len(m.results.Tracks) {
 					track := m.results.Tracks[m.cursor]
@@ -165,42 +161,112 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 }
 
 func (m SearchModel) View() string {
+	w := m.width
+	h := m.height
+	if w < 40 {
+		w = 40
+	}
+	if h < 10 {
+		h = 10
+	}
+
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(colorPurpleBorder).
+		Padding(0, 1).
+		Width(w - 4).
+		Height(h - 2)
+
 	if m.err != nil {
-		return retroPanelForWidth(m.width).Render(retroErrorStyle.Render(fmt.Sprintf("Error: %v", m.err)))
+		content := lipgloss.JoinVertical(lipgloss.Left,
+			retroTitleStyle.Render("◎ SEARCH"),
+			retroCassetteStyle.Render(strings.Repeat("─", w-8)),
+			"",
+			retroErrorStyle.Render("ERROR: "+m.err.Error()),
+		)
+		return boxStyle.Render(content)
 	}
 
 	if m.state == SearchInput {
-		header := retroTitleStyle.Render("Search Deck") + " " + retroSubtleStyle.Render("(type and press enter)")
-		return retroPanelForWidth(m.width).Render(header + "\n" + retroSubtleStyle.Render(strings.Repeat("-", 56)) + "\n" + m.input.View())
+		return m.renderInputView(boxStyle, w)
 	}
 
 	if m.loading {
-		return retroPanelForWidth(m.width).Render(retroLoadingStyle.Render(m.spinner.View() + " Searching..."))
+		content := lipgloss.JoinVertical(lipgloss.Left,
+			retroTitleStyle.Render("◎ SEARCH"),
+			retroCassetteStyle.Render(strings.Repeat("─", w-8)),
+			"",
+			retroLoadingStyle.Render(m.spinner.View()+" Searching..."),
+		)
+		return boxStyle.Render(content)
 	}
 
-	var content string
-	types := []string{"Tracks", "Albums", "Artists"}
+	return m.renderResultsView(boxStyle, w, h)
+}
 
+func (m SearchModel) renderInputView(boxStyle lipgloss.Style, w int) string {
+	title := retroTitleStyle.Render("◎ SEARCH DECK")
+	divider := retroCassetteStyle.Render(strings.Repeat("─", w-8))
+	keys := retroSubtleStyle.Render("[enter]search  [esc]back")
+
+	searchBox := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(colorAmber).
+		Padding(0, 1).
+		Render(m.input.View())
+
+	content := lipgloss.JoinVertical(lipgloss.Left,
+		title,
+		divider,
+		"",
+		retroSubtleStyle.Render("  Enter search query:"),
+		"",
+		"  "+searchBox,
+		"",
+		divider,
+		keys,
+	)
+	return boxStyle.Render(content)
+}
+
+func (m SearchModel) renderResultsView(boxStyle lipgloss.Style, w, h int) string {
+	title := retroTitleStyle.Render("◎ SEARCH RESULTS")
+	divider := retroCassetteStyle.Render(strings.Repeat("─", w-8))
+	keys := retroSubtleStyle.Render("[tab]category [p]lay [q]ueue [esc]back")
+
+	// Category tabs
+	types := []string{"TRACKS", "ALBUMS", "ARTISTS"}
+	var tabs []string
 	for i, t := range types {
-		style := retroSubtleStyle
 		if i == m.resultType {
-			style = retroSelectedStyle
+			tabs = append(tabs, retroSelectedStyle.Render("["+t+"]"))
+		} else {
+			tabs = append(tabs, retroSubtleStyle.Render(" "+t+" "))
 		}
-		content += style.Render("["+t+"]") + " "
 	}
-	content += "\n\n"
+	tabBar := strings.Join(tabs, " ")
 
+	// Results content
+	var resultContent string
 	switch m.resultType {
 	case 0:
-		content += m.renderTracks()
+		resultContent = m.renderTracks(w, h)
 	case 1:
-		content += m.renderAlbums()
+		resultContent = m.renderAlbums(w, h)
 	case 2:
-		content += m.renderArtists()
+		resultContent = m.renderArtists(w, h)
 	}
 
-	header := retroTitleStyle.Render("Search Results") + " " + retroSubtleStyle.Render("(tab: category, q: queue)")
-	return retroPanelForWidth(m.width).Render(header + "\n" + retroSubtleStyle.Render(strings.Repeat("-", 56)) + "\n" + content)
+	content := lipgloss.JoinVertical(lipgloss.Left,
+		title,
+		divider,
+		tabBar,
+		divider,
+		resultContent,
+		divider,
+		keys,
+	)
+	return boxStyle.Render(content)
 }
 
 func (m SearchModel) search(query string) tea.Cmd {
@@ -245,82 +311,137 @@ func (m SearchModel) resultCount() int {
 	return 0
 }
 
-func (m SearchModel) renderTracks() string {
+func (m SearchModel) renderTracks(w, h int) string {
 	if len(m.results.Tracks) == 0 {
-		return "No tracks found"
+		return retroSubtleStyle.Render("  No tracks found")
+	}
+
+	visibleRows := h - 12
+	if visibleRows < 3 {
+		visibleRows = 3
+	}
+	if visibleRows > 10 {
+		visibleRows = 10
+	}
+
+	start := 0
+	if m.cursor >= visibleRows {
+		start = m.cursor - visibleRows + 1
+	}
+	end := start + visibleRows
+	if end > len(m.results.Tracks) {
+		end = len(m.results.Tracks)
 	}
 
 	var lines []string
-	for i, t := range m.results.Tracks {
-		prefix := retroSubtleStyle.Render("  ")
+	for i := start; i < end; i++ {
+		t := m.results.Tracks[i]
+		num := fmt.Sprintf("%02d", i+1)
+		name := truncateStr(t.Title, w-24)
+		artist := truncateStr(t.Artist, 12)
+		dur := formatDuration(t.Duration)
+
+		var line string
 		if i == m.cursor {
-			prefix = retroSelectedStyle.Render(">> ")
+			line = retroSelectedStyle.Render(fmt.Sprintf("▶ %s %s", num, name)) +
+				retroSubtleStyle.Render(" "+artist+" ") +
+				lipgloss.NewStyle().Foreground(colorAmber).Render(dur)
+		} else {
+			line = retroSubtleStyle.Render(fmt.Sprintf("  %s ", num)) +
+				lipgloss.NewStyle().Foreground(colorLightText).Render(name) +
+				retroSubtleStyle.Render(" "+artist+" ") +
+				lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(dur)
 		}
-		min := t.Duration / 60
-		sec := t.Duration % 60
-		lines = append(lines, fmt.Sprintf("%s%s %s %s", prefix, t.Title, retroSubtleStyle.Render("- "+t.Artist), retroSubtleStyle.Render(fmt.Sprintf("(%d:%02d)", min, sec))))
+		lines = append(lines, line)
 	}
 
-	visibleCount := m.visibleRows()
-	visible := lines[:min(len(lines), visibleCount)]
-	return strings.Join(visible, "\n")
+	lines = append(lines, retroSubtleStyle.Render(fmt.Sprintf("  Track %d of %d", m.cursor+1, len(m.results.Tracks))))
+	return strings.Join(lines, "\n")
 }
 
-func (m SearchModel) renderAlbums() string {
+func (m SearchModel) renderAlbums(w, h int) string {
 	if len(m.results.Albums) == 0 {
-		return "No albums found"
+		return retroSubtleStyle.Render("  No albums found")
+	}
+
+	visibleRows := h - 12
+	if visibleRows < 3 {
+		visibleRows = 3
+	}
+	if visibleRows > 10 {
+		visibleRows = 10
+	}
+
+	start := 0
+	if m.cursor >= visibleRows {
+		start = m.cursor - visibleRows + 1
+	}
+	end := start + visibleRows
+	if end > len(m.results.Albums) {
+		end = len(m.results.Albums)
 	}
 
 	var lines []string
-	for i, a := range m.results.Albums {
-		prefix := retroSubtleStyle.Render("  ")
+	for i := start; i < end; i++ {
+		a := m.results.Albums[i]
+		num := fmt.Sprintf("%02d", i+1)
+		name := truncateStr(a.Name, w-20)
+		artist := truncateStr(a.Artist, 15)
+
+		var line string
 		if i == m.cursor {
-			prefix = retroSelectedStyle.Render(">> ")
+			line = retroSelectedStyle.Render(fmt.Sprintf("▶ %s %s", num, name)) +
+				retroSubtleStyle.Render(" - "+artist)
+		} else {
+			line = retroSubtleStyle.Render(fmt.Sprintf("  %s ", num)) +
+				lipgloss.NewStyle().Foreground(colorLightText).Render(name) +
+				retroSubtleStyle.Render(" - "+artist)
 		}
-		lines = append(lines, fmt.Sprintf("%s%s %s", prefix, a.Name, retroSubtleStyle.Render("- "+a.Artist)))
+		lines = append(lines, line)
 	}
 
-	visibleCount := m.visibleRows()
-	visible := lines[:min(len(lines), visibleCount)]
-	return strings.Join(visible, "\n")
+	lines = append(lines, retroSubtleStyle.Render(fmt.Sprintf("  Album %d of %d", m.cursor+1, len(m.results.Albums))))
+	return strings.Join(lines, "\n")
 }
 
-func (m SearchModel) renderArtists() string {
+func (m SearchModel) renderArtists(w, h int) string {
 	if len(m.results.Artists) == 0 {
-		return "No artists found"
+		return retroSubtleStyle.Render("  No artists found")
+	}
+
+	visibleRows := h - 12
+	if visibleRows < 3 {
+		visibleRows = 3
+	}
+	if visibleRows > 10 {
+		visibleRows = 10
+	}
+
+	start := 0
+	if m.cursor >= visibleRows {
+		start = m.cursor - visibleRows + 1
+	}
+	end := start + visibleRows
+	if end > len(m.results.Artists) {
+		end = len(m.results.Artists)
 	}
 
 	var lines []string
-	for i, a := range m.results.Artists {
-		prefix := retroSubtleStyle.Render("  ")
+	for i := start; i < end; i++ {
+		a := m.results.Artists[i]
+		num := fmt.Sprintf("%02d", i+1)
+		name := truncateStr(a.Name, w-12)
+
+		var line string
 		if i == m.cursor {
-			prefix = retroSelectedStyle.Render(">> ")
+			line = retroSelectedStyle.Render(fmt.Sprintf("▶ %s %s", num, name))
+		} else {
+			line = retroSubtleStyle.Render(fmt.Sprintf("  %s ", num)) +
+				lipgloss.NewStyle().Foreground(colorLightText).Render(name)
 		}
-		lines = append(lines, fmt.Sprintf("%s%s", prefix, a.Name))
+		lines = append(lines, line)
 	}
 
-	visibleCount := m.visibleRows()
-	visible := lines[:min(len(lines), visibleCount)]
-	return strings.Join(visible, "\n")
-}
-
-func (m SearchModel) visibleRows() int {
-	rows := 20
-	if m.height > 0 {
-		availableRows := m.height - 12
-		if availableRows < rows {
-			rows = availableRows
-		}
-	}
-	if rows < 5 {
-		rows = 5
-	}
-	return rows
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
+	lines = append(lines, retroSubtleStyle.Render(fmt.Sprintf("  Artist %d of %d", m.cursor+1, len(m.results.Artists))))
+	return strings.Join(lines, "\n")
 }
