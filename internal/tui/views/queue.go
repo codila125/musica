@@ -54,6 +54,18 @@ func (m QueueModel) Update(msg tea.Msg) (QueueModel, tea.Cmd) {
 		}
 	}
 
+	queue := m.playback.Queue()
+	if len(queue) == 0 {
+		m.cursor = 0
+	} else {
+		if m.cursor >= len(queue) {
+			m.cursor = len(queue) - 1
+		}
+		if m.cursor < 0 {
+			m.cursor = 0
+		}
+	}
+
 	return m, nil
 }
 

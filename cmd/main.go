@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"strings"
+	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -142,9 +145,22 @@ func runPlayer(serverName string) {
 
 	pl, err := player.New()
 	if err != nil {
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "mpv/client.h") || strings.Contains(errMsg, "libmpv") {
+			log.Fatalf("Failed to initialize player: %v\nHint: install mpv/libmpv and ensure it is on your library path.", err)
+		}
 		log.Fatalf("Failed to initialize player: %v", err)
 	}
+	defer pl.Close()
 	go pl.Monitor(nil)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	go func() {
+		<-ctx.Done()
+		_ = pl.Stop()
+		_ = pl.Close()
+	}()
 
 	currentServer := 0
 	for i, s := range cfg.Servers {
@@ -160,8 +176,6 @@ func runPlayer(serverName string) {
 	if _, err := p.Run(); err != nil {
 		log.Fatalf("Error running TUI: %v", err)
 	}
-
-	defer pl.Close()
 }
 
 func main() {

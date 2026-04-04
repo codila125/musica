@@ -147,6 +147,10 @@ Config/security validation notes are in:
 
 - `docs/config.md`
 
+Operations and UX hardening notes are in:
+
+- `docs/operations.md`
+
 ## License
 
 No license file is currently present in this repository.

@@ -143,6 +143,11 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 		case "esc":
 			if m.state == SearchResults {
 				m.state = SearchInput
+				m.loading = false
+				if m.cancelSearch != nil {
+					m.cancelSearch()
+					m.cancelSearch = nil
+				}
 				m.input.Focus()
 				return m, textinput.Blink
 			}
