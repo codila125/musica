@@ -109,46 +109,55 @@ func (m QueueModel) View() string {
 
 	// Column headers
 	innerW := w - 8
-	nameW := trackNameWidth(innerW)
-	header := trackTableHeader(nameW)
+	cols := computeTrackColumns(innerW)
+	header := trackTableHeader(cols)
 	lines = append(lines, header)
 
 	for i := start; i < end; i++ {
 		t := queue[i]
 		num := fmt.Sprintf("%02d", i+1)
-		name := truncateStr(t.Title, nameW)
-		artist := truncateStr(t.Artist, artistColWidth)
-		album := truncateStr(t.Album, albumColWidth)
+		name := truncateStr(t.Title, cols.nameW)
+		artist := truncateStr(t.Artist, cols.artistW)
+		album := truncateStr(t.Album, cols.albumW)
 		dur := formatDuration(t.Duration)
 
 		var line string
 		if i == current {
 			line = retroCurrentStyle.Render(fmt.Sprintf("▶ %s ", num)) +
-				retroCurrentStyle.Render(padRight(name, nameW)) +
-				retroSubtleStyle.Render(" ") +
-				retroSubtleStyle.Render(padRight(artist, artistColWidth)) +
-				retroSubtleStyle.Render(" ") +
-				retroSubtleStyle.Render(padRight(album, albumColWidth)) +
-				retroSubtleStyle.Render(" ") +
-				lipgloss.NewStyle().Foreground(colorGreenSelect).Render(padRight(dur, durationColWidth))
+				retroCurrentStyle.Render(padRight(name, cols.nameW))
+			if cols.showArtist {
+				line += retroSubtleStyle.Render(" ") + retroSubtleStyle.Render(padRight(artist, cols.artistW))
+			}
+			if cols.showAlbum {
+				line += retroSubtleStyle.Render(" ") + retroSubtleStyle.Render(padRight(album, cols.albumW))
+			}
+			if cols.showDuration {
+				line += retroSubtleStyle.Render(" ") + lipgloss.NewStyle().Foreground(colorGreenSelect).Render(padRight(dur, cols.durationW))
+			}
 		} else if i == m.cursor {
 			line = retroSelectedStyle.Render(fmt.Sprintf("► %s ", num)) +
-				retroSelectedStyle.Render(padRight(name, nameW)) +
-				retroSubtleStyle.Render(" ") +
-				retroSubtleStyle.Render(padRight(artist, artistColWidth)) +
-				retroSubtleStyle.Render(" ") +
-				retroSubtleStyle.Render(padRight(album, albumColWidth)) +
-				retroSubtleStyle.Render(" ") +
-				lipgloss.NewStyle().Foreground(colorAmber).Render(padRight(dur, durationColWidth))
+				retroSelectedStyle.Render(padRight(name, cols.nameW))
+			if cols.showArtist {
+				line += retroSubtleStyle.Render(" ") + retroSubtleStyle.Render(padRight(artist, cols.artistW))
+			}
+			if cols.showAlbum {
+				line += retroSubtleStyle.Render(" ") + retroSubtleStyle.Render(padRight(album, cols.albumW))
+			}
+			if cols.showDuration {
+				line += retroSubtleStyle.Render(" ") + lipgloss.NewStyle().Foreground(colorAmber).Render(padRight(dur, cols.durationW))
+			}
 		} else {
 			line = retroSubtleStyle.Render(fmt.Sprintf("  %s ", num)) +
-				lipgloss.NewStyle().Foreground(colorLightText).Render(padRight(name, nameW)) +
-				retroSubtleStyle.Render(" ") +
-				retroSubtleStyle.Render(padRight(artist, artistColWidth)) +
-				retroSubtleStyle.Render(" ") +
-				retroSubtleStyle.Render(padRight(album, albumColWidth)) +
-				retroSubtleStyle.Render(" ") +
-				lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(padRight(dur, durationColWidth))
+				lipgloss.NewStyle().Foreground(colorLightText).Render(padRight(name, cols.nameW))
+			if cols.showArtist {
+				line += retroSubtleStyle.Render(" ") + retroSubtleStyle.Render(padRight(artist, cols.artistW))
+			}
+			if cols.showAlbum {
+				line += retroSubtleStyle.Render(" ") + retroSubtleStyle.Render(padRight(album, cols.albumW))
+			}
+			if cols.showDuration {
+				line += retroSubtleStyle.Render(" ") + lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(padRight(dur, cols.durationW))
+			}
 		}
 		lines = append(lines, line)
 	}

@@ -24,14 +24,22 @@ func TestCalcVisibleRows(t *testing.T) {
 	}
 }
 
-func TestTrackNameWidth(t *testing.T) {
-	nameW := trackNameWidth(20)
-	if nameW != 10 {
-		t.Fatalf("expected minimum name width 10, got %d", nameW)
+func TestComputeTrackColumnsPriority(t *testing.T) {
+	wide := computeTrackColumns(120)
+	if !wide.showArtist || !wide.showAlbum || !wide.showDuration {
+		t.Fatalf("expected all columns visible in wide layout")
 	}
 
-	nameW = trackNameWidth(120)
-	if nameW != 29 {
-		t.Fatalf("expected name width 29, got %d", nameW)
+	narrow := computeTrackColumns(40)
+	if narrow.nameW < 10 {
+		t.Fatalf("expected minimum name width, got %d", narrow.nameW)
+	}
+	if narrow.showAlbum && narrow.albumW > albumColWidth {
+		t.Fatalf("expected album to shrink or hide")
+	}
+
+	veryNarrow := computeTrackColumns(24)
+	if veryNarrow.showAlbum {
+		t.Fatalf("expected album hidden in very narrow layout")
 	}
 }
