@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -112,36 +113,57 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 
 func (m BrowseModel) View() string {
 	if m.err != nil {
-		return retroPanelStyle.Render(retroErrorStyle.Render("Error: " + m.err.Error()))
+		return retroPanelForWidth(m.width).Render(retroErrorStyle.Render("Error: " + m.err.Error()))
 	}
 	if m.loading {
-		return retroPanelStyle.Render(retroLoadingStyle.Render("Loading recent additions..."))
+		return retroPanelForWidth(m.width).Render(retroLoadingStyle.Render("Loading recent additions..."))
 	}
 
-	head := retroTitleStyle.Render("Recent Additions") + " " + retroSubtleStyle.Render("(enter/p: play, q: queue, r: refresh)")
-	lines := []string{head, retroSubtleStyle.Render(strings.Repeat("-", 56))}
+	title := retroTitleStyle.Render("RETRO TAPE PLAYER") + " " + retroSubtleStyle.Render("(enter/p play, q queue, r refresh)")
+	divider := retroSubtleStyle.Render(strings.Repeat("=", 68))
+
+	contentWidth := 72
+	if m.width > 0 {
+		contentWidth = m.width - 12
+	}
+	if contentWidth < 40 {
+		contentWidth = 40
+	}
+
+	leftWidth := (contentWidth * 58) / 100
+	if leftWidth < 24 {
+		leftWidth = 24
+	}
+	rightWidth := contentWidth - leftWidth - 1
+	if rightWidth < 15 {
+		rightWidth = 15
+		leftWidth = contentWidth - rightWidth - 1
+	}
+
+	listPanel := lipgloss.NewStyle().Width(leftWidth).MaxWidth(leftWidth).Render(m.renderTrackList())
+	tapePanel := lipgloss.NewStyle().Width(rightWidth).MaxWidth(rightWidth).Render(m.renderTapeDeck())
+	content := lipgloss.JoinHorizontal(lipgloss.Top, listPanel, " ", tapePanel)
+
+	return retroPanelForWidth(m.width).Render(title + "\n" + divider + "\n" + content)
+}
+
+func (m BrowseModel) renderTrackList() string {
+	lines := []string{retroTitleStyle.Render("TRACK LIST")}
 
 	if len(m.tracks) == 0 {
-		lines = append(lines, "No tracks found", "", m.debug)
-		return retroPanelForWidth(m.width).Render(strings.Join(lines, "\n"))
+		lines = append(lines, retroSubtleStyle.Render("No tracks found"))
+		return strings.Join(lines, "\n")
 	}
 
-	maxRows := 20
-	if m.height > 0 {
-		availableRows := m.height - 10
-		if availableRows < maxRows {
-			maxRows = availableRows
-		}
-	}
-	if maxRows < 5 {
-		maxRows = 5
-	}
-
+	visibleRows := 10
 	start := 0
-	if m.cursor >= maxRows {
-		start = m.cursor - maxRows + 1
+	if m.cursor >= visibleRows {
+		start = m.cursor - visibleRows + 1
 	}
-	end := start + maxRows
+	if start < 0 {
+		start = 0
+	}
+	end := start + visibleRows
 	if end > len(m.tracks) {
 		end = len(m.tracks)
 	}
@@ -152,14 +174,59 @@ func (m BrowseModel) View() string {
 		if i == m.cursor {
 			prefix = retroSelectedStyle.Render(">> ")
 		}
-		lines = append(lines, fmt.Sprintf("%s%s %s", prefix, t.Title, retroSubtleStyle.Render("- "+t.Artist)))
+		line := fmt.Sprintf("%s%02d %s %s", prefix, i+1, t.Title, retroSubtleStyle.Render("- "+t.Artist))
+		lines = append(lines, line)
 	}
 
+	lines = append(lines, "", retroSubtleStyle.Render(fmt.Sprintf("showing 10/%d (j/k to scroll)", len(m.tracks))))
 	if m.debug != "" {
-		lines = append(lines, "", lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(m.debug))
+		lines = append(lines, retroSubtleStyle.Render(m.debug))
 	}
 
-	return retroPanelForWidth(m.width).Render(strings.Join(lines, "\n"))
+	return strings.Join(lines, "\n")
+}
+
+func (m BrowseModel) renderTapeDeck() string {
+	frames := []string{"|", "/", "-", "\\", "|", "/", "-", "\\"}
+	state := m.player.State()
+	interval := 125 * time.Millisecond
+	moving := true
+	stateLabel := "STOP"
+
+	switch state {
+	case models.StatePlaying:
+		interval = 90 * time.Millisecond
+		stateLabel = "PLAY"
+	case models.StatePaused:
+		interval = 450 * time.Millisecond
+		stateLabel = "PAUSE"
+	default:
+		moving = false
+	}
+
+	step := 0
+	if moving {
+		step = int((time.Now().UnixNano() / int64(interval)) % int64(len(frames)))
+	}
+	l1 := frames[step]
+	l2 := frames[(step+2)%len(frames)]
+	r1 := frames[(step+4)%len(frames)]
+	r2 := frames[(step+6)%len(frames)]
+
+	deck := []string{
+		retroTitleStyle.Render("TAPE WHEELS"),
+		retroSubtleStyle.Render("    ______________   ______________"),
+		retroSubtleStyle.Render(fmt.Sprintf(`   /   %s   O   %s  \ /   %s   O   %s  \`, l1, l2, r1, r2)),
+		retroSubtleStyle.Render(fmt.Sprintf("  |      %s(%s)%s      ||      %s(%s)%s      |", l2, l1, r2, r2, r1, l1)),
+		retroSubtleStyle.Render(fmt.Sprintf("   \\__ %s ___ %s __// \\__ %s ___ %s __//", l2, l1, r2, r1)),
+		retroSubtleStyle.Render("       |_____________________________|"),
+		"",
+		retroSubtleStyle.Render("          MODE: " + stateLabel),
+		retroSubtleStyle.Render("       [PLAY] [STOP] [REW]"),
+		retroSubtleStyle.Render("        [FF]  [PAUSE] [REC]"),
+	}
+
+	return strings.Join(deck, "\n")
 }
 
 func (m BrowseModel) loadRecentTracks() tea.Msg {

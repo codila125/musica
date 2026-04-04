@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -41,24 +42,25 @@ type Model struct {
 	queue         views.QueueModel
 	width         int
 	height        int
+	blinkOn       bool
 }
 
 var (
 	frameStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("99")).
+			BorderForeground(lipgloss.Color("93")).
 			Foreground(lipgloss.Color("230")).
 			Background(lipgloss.Color("0")).
-			Padding(0, 1)
+			Padding(0, 0)
 	tapeTabRaisedStyle = lipgloss.NewStyle().
 				Border(lipgloss.NormalBorder()).
-				BorderForeground(lipgloss.Color("250")).
+				BorderForeground(lipgloss.Color("240")).
 				Foreground(lipgloss.Color("248")).
 				Background(lipgloss.Color("238")).
 				Align(lipgloss.Center)
 	tapeTabPressedStyle = lipgloss.NewStyle().
 				Border(lipgloss.NormalBorder()).
-				BorderForeground(lipgloss.Color("240")).
+				BorderForeground(lipgloss.Color("52")).
 				Foreground(lipgloss.Color("223")).
 				Background(lipgloss.Color("234")).
 				Align(lipgloss.Center)
@@ -67,6 +69,8 @@ var (
 	hintStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	nowStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("51"))
 )
+
+type uiTickMsg time.Time
 
 type switchServerMsg struct {
 	client api.Client
@@ -88,7 +92,13 @@ func NewModel(client api.Client, pl *player.Player, servers []config.ServerConfi
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.browse.Init(), m.search.Init(), m.queue.Init())
+	return tea.Batch(m.browse.Init(), m.search.Init(), m.queue.Init(), uiTickCmd())
+}
+
+func uiTickCmd() tea.Cmd {
+	return tea.Tick(250*time.Millisecond, func(t time.Time) tea.Msg {
+		return uiTickMsg(t)
+	})
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -100,6 +110,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.search, _ = m.search.Update(msg)
 		m.queue, _ = m.queue.Update(msg)
 		return m, nil
+
+	case uiTickMsg:
+		m.blinkOn = !m.blinkOn
+		return m, uiTickCmd()
 
 	case tea.KeyMsg:
 		switch {
@@ -243,13 +257,23 @@ func (m Model) renderTabBar() string {
 		}
 
 		if Tab(i) == m.activeTab {
-			text := label
+			text := "[" + label + "]"
 			if innerWidth >= 6 {
-				text = tapeLedStyle.Render("●") + " " + label
+				text = tapeLedStyle.Render("●") + " " + "[" + label + "]"
 			}
-			tabs[i] = tapeTabPressedStyle.Copy().Width(innerWidth).Render(text)
+			pressed := tapeTabPressedStyle.Copy().Width(innerWidth)
+			if m.blinkOn {
+				pressed = pressed.BorderForeground(lipgloss.Color("196")).Foreground(lipgloss.Color("203"))
+			} else {
+				pressed = pressed.BorderForeground(lipgloss.Color("88")).Foreground(lipgloss.Color("223"))
+			}
+			tabs[i] = pressed.Render(text)
 		} else {
-			tabs[i] = tapeTabRaisedStyle.Copy().Width(innerWidth).Render(label)
+			raised := tapeTabRaisedStyle.Copy().Width(innerWidth)
+			if m.blinkOn {
+				raised = raised.BorderForeground(lipgloss.Color("160")).Foreground(lipgloss.Color("210"))
+			}
+			tabs[i] = raised.Render("[" + label + "]")
 		}
 	}
 
