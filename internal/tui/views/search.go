@@ -333,24 +333,51 @@ func (m SearchModel) renderTracks(w, h int) string {
 		end = len(m.results.Tracks)
 	}
 
+	nameW := w - 91
+	if nameW < 10 {
+		nameW = 10
+	}
+
 	var lines []string
+
+	// Column headers
+	header := retroSubtleStyle.Render("  # ") +
+		retroColumnHeaderStyle.Render(padRight("NAME", nameW)) +
+		retroSubtleStyle.Render(" ") +
+		retroColumnHeaderStyle.Render(padRight("ARTIST", 35)) +
+		retroSubtleStyle.Render(" ") +
+		retroColumnHeaderStyle.Render(padRight("ALBUM", 40)) +
+		retroSubtleStyle.Render(" ") +
+		retroColumnHeaderStyle.Render(padRight("DURATION", 8))
+	lines = append(lines, header)
+
 	for i := start; i < end; i++ {
 		t := m.results.Tracks[i]
 		num := fmt.Sprintf("%02d", i+1)
-		name := truncateStr(t.Title, w-24)
-		artist := truncateStr(t.Artist, 12)
+		name := truncateStr(t.Title, nameW)
+		artist := truncateStr(t.Artist, 35)
+		album := truncateStr(t.Album, 40)
 		dur := formatDuration(t.Duration)
 
 		var line string
 		if i == m.cursor {
-			line = retroSelectedStyle.Render(fmt.Sprintf("▶ %s %s", num, name)) +
-				retroSubtleStyle.Render(" "+artist+" ") +
-				lipgloss.NewStyle().Foreground(colorAmber).Render(dur)
+			line = retroSelectedStyle.Render(fmt.Sprintf("▶ %s ", num)) +
+				retroSelectedStyle.Render(padRight(name, nameW)) +
+				retroSubtleStyle.Render(" ") +
+				retroSubtleStyle.Render(padRight(artist, 35)) +
+				retroSubtleStyle.Render(" ") +
+				retroSubtleStyle.Render(padRight(album, 40)) +
+				retroSubtleStyle.Render(" ") +
+				lipgloss.NewStyle().Foreground(colorAmber).Render(padRight(dur, 8))
 		} else {
 			line = retroSubtleStyle.Render(fmt.Sprintf("  %s ", num)) +
-				lipgloss.NewStyle().Foreground(colorLightText).Render(name) +
-				retroSubtleStyle.Render(" "+artist+" ") +
-				lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(dur)
+				lipgloss.NewStyle().Foreground(colorLightText).Render(padRight(name, nameW)) +
+				retroSubtleStyle.Render(" ") +
+				retroSubtleStyle.Render(padRight(artist, 35)) +
+				retroSubtleStyle.Render(" ") +
+				retroSubtleStyle.Render(padRight(album, 40)) +
+				retroSubtleStyle.Render(" ") +
+				lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(padRight(dur, 8))
 		}
 		lines = append(lines, line)
 	}

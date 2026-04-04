@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/codila125/musica/internal/api"
@@ -58,6 +59,9 @@ type jellyfinTrack struct {
 	RunTimeTicks int64             `json:"RunTimeTicks"`
 	IndexNumber  int               `json:"IndexNumber"`
 	ImageTags    map[string]string `json:"ImageTags"`
+	MediaSources []struct {
+		Container string `json:"Container"`
+	} `json:"MediaSources,omitempty"`
 }
 
 type jellyfinPlaylist struct {
@@ -237,6 +241,10 @@ func (c *Client) GetRecentTracks(ctx context.Context, limit int) ([]models.Track
 		}
 
 		duration := int(t.RunTimeTicks / 10000000)
+		format := ""
+		if len(t.MediaSources) > 0 && t.MediaSources[0].Container != "" {
+			format = strings.ToUpper(t.MediaSources[0].Container)
+		}
 		tracks = append(tracks, models.Track{
 			ID:        t.ID,
 			Title:     t.Name,
@@ -248,6 +256,7 @@ func (c *Client) GetRecentTracks(ctx context.Context, limit int) ([]models.Track
 			TrackNum:  t.IndexNumber,
 			StreamURL: c.getStreamURL(t.ID),
 			CoverURL:  c.getCoverURL(t.AlbumID),
+			Format:    format,
 		})
 	}
 
@@ -406,6 +415,10 @@ func (c *Client) GetTracks(ctx context.Context, albumID string) ([]models.Track,
 		}
 
 		duration := int(t.RunTimeTicks / 10000000)
+		format := ""
+		if len(t.MediaSources) > 0 && t.MediaSources[0].Container != "" {
+			format = strings.ToUpper(t.MediaSources[0].Container)
+		}
 
 		tracks = append(tracks, models.Track{
 			ID:        t.ID,
@@ -418,6 +431,7 @@ func (c *Client) GetTracks(ctx context.Context, albumID string) ([]models.Track,
 			TrackNum:  t.IndexNumber,
 			StreamURL: c.getStreamURL(t.ID),
 			CoverURL:  c.getCoverURL(t.AlbumID),
+			Format:    format,
 		})
 	}
 
@@ -491,6 +505,10 @@ func (c *Client) GetPlaylistTracks(ctx context.Context, playlistID string) ([]mo
 		}
 
 		duration := int(t.RunTimeTicks / 10000000)
+		format := ""
+		if len(t.MediaSources) > 0 && t.MediaSources[0].Container != "" {
+			format = strings.ToUpper(t.MediaSources[0].Container)
+		}
 
 		tracks = append(tracks, models.Track{
 			ID:        t.ID,
@@ -503,6 +521,7 @@ func (c *Client) GetPlaylistTracks(ctx context.Context, playlistID string) ([]mo
 			TrackNum:  t.IndexNumber,
 			StreamURL: c.getStreamURL(t.ID),
 			CoverURL:  c.getCoverURL(t.AlbumID),
+			Format:    format,
 		})
 	}
 

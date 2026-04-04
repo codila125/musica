@@ -189,23 +189,48 @@ func (m BrowseModel) View() string {
 	cassetteStatus := m.renderCompactCassette()
 	lines = append(lines, cassetteStatus)
 
+	// Column headers
+	nameW := innerW - 91
+	if nameW < 10 {
+		nameW = 10
+	}
+	header := retroSubtleStyle.Render("  # ") +
+		retroColumnHeaderStyle.Render(padRight("NAME", nameW)) +
+		retroSubtleStyle.Render(" ") +
+		retroColumnHeaderStyle.Render(padRight("ARTIST", 35)) +
+		retroSubtleStyle.Render(" ") +
+		retroColumnHeaderStyle.Render(padRight("ALBUM", 40)) +
+		retroSubtleStyle.Render(" ") +
+		retroColumnHeaderStyle.Render(padRight("DURATION", 8))
+	lines = append(lines, header)
+
 	for i := start; i < end; i++ {
 		t := m.tracks[i]
 		num := fmt.Sprintf("%02d", i+1)
-		name := truncateStr(t.Title, innerW-20)
-		artist := truncateStr(t.Artist, 12)
+		name := truncateStr(t.Title, nameW)
+		artist := truncateStr(t.Artist, 35)
+		album := truncateStr(t.Album, 40)
 		dur := formatDuration(t.Duration)
 
 		var line string
 		if i == m.cursor {
-			line = retroSelectedStyle.Render(fmt.Sprintf("▶ %s %s", num, name)) +
-				retroSubtleStyle.Render(" "+artist+" ") +
-				lipgloss.NewStyle().Foreground(colorAmber).Render(dur)
+			line = retroSelectedStyle.Render(fmt.Sprintf("▶ %s ", num)) +
+				retroSelectedStyle.Render(padRight(name, nameW)) +
+				retroSubtleStyle.Render(" ") +
+				retroSubtleStyle.Render(padRight(artist, 35)) +
+				retroSubtleStyle.Render(" ") +
+				retroSubtleStyle.Render(padRight(album, 40)) +
+				retroSubtleStyle.Render(" ") +
+				lipgloss.NewStyle().Foreground(colorAmber).Render(padRight(dur, 8))
 		} else {
 			line = retroSubtleStyle.Render(fmt.Sprintf("  %s ", num)) +
-				lipgloss.NewStyle().Foreground(colorLightText).Render(name) +
-				retroSubtleStyle.Render(" "+artist+" ") +
-				lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(dur)
+				lipgloss.NewStyle().Foreground(colorLightText).Render(padRight(name, nameW)) +
+				retroSubtleStyle.Render(" ") +
+				retroSubtleStyle.Render(padRight(artist, 35)) +
+				retroSubtleStyle.Render(" ") +
+				retroSubtleStyle.Render(padRight(album, 40)) +
+				retroSubtleStyle.Render(" ") +
+				lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(padRight(dur, 8))
 		}
 		lines = append(lines, line)
 	}
@@ -285,4 +310,11 @@ func formatDuration(seconds int) string {
 	m := seconds / 60
 	s := seconds % 60
 	return fmt.Sprintf("%d:%02d", m, s)
+}
+
+func padRight(s string, w int) string {
+	if len(s) >= w {
+		return s
+	}
+	return s + strings.Repeat(" ", w-len(s))
 }

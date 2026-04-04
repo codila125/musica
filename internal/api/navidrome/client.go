@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/codila125/musica/internal/api"
@@ -63,15 +64,17 @@ type subsonicResponse struct {
 		Year     int    `json:"year"`
 		CoverArt string `json:"coverArt"`
 		Song     []struct {
-			ID       string `json:"id"`
-			Title    string `json:"title"`
-			Artist   string `json:"artist"`
-			ArtistID string `json:"artistId"`
-			Album    string `json:"album"`
-			AlbumID  string `json:"albumId"`
-			Duration int    `json:"duration"`
-			Track    int    `json:"track"`
-			CoverArt string `json:"coverArt"`
+			ID          string `json:"id"`
+			Title       string `json:"title"`
+			Artist      string `json:"artist"`
+			ArtistID    string `json:"artistId"`
+			Album       string `json:"album"`
+			AlbumID     string `json:"albumId"`
+			Duration    int    `json:"duration"`
+			Track       int    `json:"track"`
+			CoverArt    string `json:"coverArt"`
+			ContentType string `json:"contentType"`
+			Suffix      string `json:"suffix"`
 		} `json:"song"`
 	} `json:"album"`
 
@@ -99,15 +102,17 @@ type subsonicResponse struct {
 		ID    string `json:"id"`
 		Name  string `json:"name"`
 		Entry []struct {
-			ID       string `json:"id"`
-			Title    string `json:"title"`
-			Artist   string `json:"artist"`
-			ArtistID string `json:"artistId"`
-			Album    string `json:"album"`
-			AlbumID  string `json:"albumId"`
-			Duration int    `json:"duration"`
-			Track    int    `json:"track"`
-			CoverArt string `json:"coverArt"`
+			ID          string `json:"id"`
+			Title       string `json:"title"`
+			Artist      string `json:"artist"`
+			ArtistID    string `json:"artistId"`
+			Album       string `json:"album"`
+			AlbumID     string `json:"albumId"`
+			Duration    int    `json:"duration"`
+			Track       int    `json:"track"`
+			CoverArt    string `json:"coverArt"`
+			ContentType string `json:"contentType"`
+			Suffix      string `json:"suffix"`
 		} `json:"entry"`
 	} `json:"playlist"`
 
@@ -127,15 +132,17 @@ type subsonicResponse struct {
 			CoverArt string `json:"coverArt"`
 		} `json:"album"`
 		Song []struct {
-			ID       string `json:"id"`
-			Title    string `json:"title"`
-			Artist   string `json:"artist"`
-			ArtistID string `json:"artistId"`
-			Album    string `json:"album"`
-			AlbumID  string `json:"albumId"`
-			Duration int    `json:"duration"`
-			Track    int    `json:"track"`
-			CoverArt string `json:"coverArt"`
+			ID          string `json:"id"`
+			Title       string `json:"title"`
+			Artist      string `json:"artist"`
+			ArtistID    string `json:"artistId"`
+			Album       string `json:"album"`
+			AlbumID     string `json:"albumId"`
+			Duration    int    `json:"duration"`
+			Track       int    `json:"track"`
+			CoverArt    string `json:"coverArt"`
+			ContentType string `json:"contentType"`
+			Suffix      string `json:"suffix"`
 		} `json:"song"`
 	} `json:"searchResult3"`
 }
@@ -330,6 +337,7 @@ func (c *Client) GetTracks(ctx context.Context, albumID string) ([]models.Track,
 			TrackNum:  s.Track,
 			StreamURL: c.getStreamURL(s.ID),
 			CoverURL:  c.getCoverURL(s.CoverArt),
+			Format:    strings.ToUpper(s.Suffix),
 		})
 	}
 
@@ -387,6 +395,7 @@ func (c *Client) GetPlaylistTracks(ctx context.Context, playlistID string) ([]mo
 			TrackNum:  e.Track,
 			StreamURL: c.getStreamURL(e.ID),
 			CoverURL:  c.getCoverURL(e.CoverArt),
+			Format:    strings.ToUpper(e.Suffix),
 		})
 	}
 
@@ -443,6 +452,7 @@ func (c *Client) Search(ctx context.Context, query string) (models.SearchResult,
 			TrackNum:  s.Track,
 			StreamURL: c.getStreamURL(s.ID),
 			CoverURL:  c.getCoverURL(s.CoverArt),
+			Format:    strings.ToUpper(s.Suffix),
 		})
 	}
 

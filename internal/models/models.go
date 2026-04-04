@@ -11,6 +11,7 @@ type Track struct {
 	TrackNum  int
 	StreamURL string
 	CoverURL  string
+	Format    string
 }
 
 type Album struct {

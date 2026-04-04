@@ -53,6 +53,10 @@ var (
 
 	retroTapeStyle = lipgloss.NewStyle().
 			Foreground(colorTapeBody)
+
+	retroColumnHeaderStyle = lipgloss.NewStyle().
+				Foreground(colorAmber).
+				Bold(true)
 )
 
 func retroPanelForSize(width, height int) lipgloss.Style {

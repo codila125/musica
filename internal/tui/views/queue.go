@@ -118,30 +118,57 @@ func (m QueueModel) View() string {
 
 	lines := []string{title, divider}
 
+	// Column headers
+	nameW := w - 91
+	if nameW < 10 {
+		nameW = 10
+	}
+	header := retroSubtleStyle.Render("  # ") +
+		retroColumnHeaderStyle.Render(padRight("NAME", nameW)) +
+		retroSubtleStyle.Render(" ") +
+		retroColumnHeaderStyle.Render(padRight("ARTIST", 35)) +
+		retroSubtleStyle.Render(" ") +
+		retroColumnHeaderStyle.Render(padRight("ALBUM", 40)) +
+		retroSubtleStyle.Render(" ") +
+		retroColumnHeaderStyle.Render(padRight("DURATION", 8))
+	lines = append(lines, header)
+
 	for i := start; i < end; i++ {
 		t := queue[i]
 		num := fmt.Sprintf("%02d", i+1)
-		name := truncateStr(t.Title, w-24)
-		artist := truncateStr(t.Artist, 12)
+		name := truncateStr(t.Title, nameW)
+		artist := truncateStr(t.Artist, 35)
+		album := truncateStr(t.Album, 40)
 		dur := formatDuration(t.Duration)
 
 		var line string
 		if i == current {
-			// Currently playing track
-			line = retroCurrentStyle.Render(fmt.Sprintf("▶ %s %s", num, name)) +
-				retroSubtleStyle.Render(" "+artist+" ") +
-				lipgloss.NewStyle().Foreground(colorGreenSelect).Render(dur)
+			line = retroCurrentStyle.Render(fmt.Sprintf("▶ %s ", num)) +
+				retroCurrentStyle.Render(padRight(name, nameW)) +
+				retroSubtleStyle.Render(" ") +
+				retroSubtleStyle.Render(padRight(artist, 35)) +
+				retroSubtleStyle.Render(" ") +
+				retroSubtleStyle.Render(padRight(album, 40)) +
+				retroSubtleStyle.Render(" ") +
+				lipgloss.NewStyle().Foreground(colorGreenSelect).Render(padRight(dur, 8))
 		} else if i == m.cursor {
-			// Selected track
-			line = retroSelectedStyle.Render(fmt.Sprintf("► %s %s", num, name)) +
-				retroSubtleStyle.Render(" "+artist+" ") +
-				lipgloss.NewStyle().Foreground(colorAmber).Render(dur)
+			line = retroSelectedStyle.Render(fmt.Sprintf("► %s ", num)) +
+				retroSelectedStyle.Render(padRight(name, nameW)) +
+				retroSubtleStyle.Render(" ") +
+				retroSubtleStyle.Render(padRight(artist, 35)) +
+				retroSubtleStyle.Render(" ") +
+				retroSubtleStyle.Render(padRight(album, 40)) +
+				retroSubtleStyle.Render(" ") +
+				lipgloss.NewStyle().Foreground(colorAmber).Render(padRight(dur, 8))
 		} else {
-			// Normal track
 			line = retroSubtleStyle.Render(fmt.Sprintf("  %s ", num)) +
-				lipgloss.NewStyle().Foreground(colorLightText).Render(name) +
-				retroSubtleStyle.Render(" "+artist+" ") +
-				lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(dur)
+				lipgloss.NewStyle().Foreground(colorLightText).Render(padRight(name, nameW)) +
+				retroSubtleStyle.Render(" ") +
+				retroSubtleStyle.Render(padRight(artist, 35)) +
+				retroSubtleStyle.Render(" ") +
+				retroSubtleStyle.Render(padRight(album, 40)) +
+				retroSubtleStyle.Render(" ") +
+				lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(padRight(dur, 8))
 		}
 		lines = append(lines, line)
 	}
