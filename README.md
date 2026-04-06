@@ -14,24 +14,11 @@ MUSICA is a keyboard-first TUI app with cassette-deck vibes. It runs in your ter
 
 ## Install
 
-### Homebrew (recommended)
+### Homebrew
 
 ```bash
 brew tap <you>/tap
 brew install musica
-```
-
-### From source
-
-Prerequisites:
-
-- Go `1.26+`
-- `mpv` + `libmpv`
-
-Build:
-
-```bash
-go build -o musica ./cmd
 ```
 
 ## First-time setup
@@ -88,7 +75,13 @@ musica --server <server-name>
 
 ### `libmpv` load error on startup
 
-Install `mpv` first, then ensure your loader path includes mpv libs.
+If installed via Homebrew formula, this is handled by the wrapper script automatically.
+
+If you still see loader errors, ensure `mpv` is installed:
+
+```bash
+brew install mpv
+```
 
 On macOS (Homebrew):
 
@@ -101,8 +94,6 @@ On Linux:
 ```bash
 export LD_LIBRARY_PATH="<mpv-lib-dir>${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 ```
-
-If you are using `run.sh` locally, it already tries to detect and set these paths automatically.
 
 ## Documentation
 
