@@ -48,6 +48,19 @@ func TestValidateRejectsDuplicateNames(t *testing.T) {
 	}
 }
 
+func TestValidateRequiresDefaultServerWhenServersExist(t *testing.T) {
+	cfg := &Config{
+		Version: CurrentVersion,
+		Servers: []ServerConfig{
+			{Type: "navidrome", Name: "home", URL: "https://a.com", Username: "u", Password: "p"},
+		},
+	}
+
+	if err := cfg.Validate(); err == nil {
+		t.Fatalf("expected missing default server validation error")
+	}
+}
+
 func TestServerRedacted(t *testing.T) {
 	s := ServerConfig{Type: "navidrome", Name: "x", URL: "https://x", Username: "u", Password: "secret"}
 	r := s.Redacted()

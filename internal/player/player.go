@@ -106,7 +106,7 @@ func (p *Player) Play(track models.Track) error {
 	if track.StreamURL == "" {
 		return fmt.Errorf("empty stream URL for track: %s", track.Title)
 	}
-	logger.Get().Debug("Player loadfile: %s", track.StreamURL)
+	logger.Get().Debug("Player loadfile: %s", logger.RedactURLSecrets(track.StreamURL))
 
 	p.queue = []models.Track{track}
 	p.current = 0
@@ -136,7 +136,7 @@ func (p *Player) PlayQueue(tracks []models.Track, startIdx int) error {
 	if tracks[startIdx].StreamURL == "" {
 		return fmt.Errorf("empty stream URL for track: %s", tracks[startIdx].Title)
 	}
-	logger.Get().Debug("Player queue loadfile: %s", tracks[startIdx].StreamURL)
+	logger.Get().Debug("Player queue loadfile: %s", logger.RedactURLSecrets(tracks[startIdx].StreamURL))
 
 	p.queue = tracks
 	p.current = startIdx

@@ -26,7 +26,7 @@ func runList() error {
 	}
 
 	if len(cfg.Servers) == 0 {
-		fmt.Println("No servers configured. Run 'musica setup' to add one.")
+		fmt.Println("No servers configured. Run: musica setup")
 		return nil
 	}
 
@@ -123,7 +123,7 @@ func runPlayer(serverName string) error {
 	case "jellyfin":
 		client = jellyfin.New(*serverCfg)
 	default:
-		log.Fatalf("Unknown server type: %s", serverCfg.Type)
+		return fmt.Errorf("unknown server type: %s", serverCfg.Type)
 	}
 
 	ctx := context.Background()

@@ -2,8 +2,10 @@ package logger
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -79,4 +81,32 @@ func (l *Logger) Close() {
 	if l.file != nil {
 		l.file.Close()
 	}
+}
+
+func RedactURLSecrets(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.RawQuery == "" {
+		return raw
+	}
+
+	q := u.Query()
+	redacted := false
+	for _, key := range []string{"api_key", "token", "t", "s", "p", "password", "u"} {
+		if _, ok := q[key]; ok {
+			q.Set(key, "***")
+			redacted = true
+		}
+	}
+
+	if !redacted {
+		return raw
+	}
+
+	u.RawQuery = q.Encode()
+	out := u.String()
+	if strings.HasPrefix(raw, "https://") || strings.HasPrefix(raw, "http://") {
+		return out
+	}
+
+	return raw
 }

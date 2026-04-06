@@ -26,6 +26,10 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid config version: %d", c.Version)
 	}
 
+	if len(c.Servers) > 0 && c.DefaultServer == "" {
+		return fmt.Errorf("default server is required when servers are configured")
+	}
+
 	nameSeen := map[string]struct{}{}
 	foundDefault := c.DefaultServer == ""
 
