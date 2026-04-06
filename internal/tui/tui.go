@@ -155,6 +155,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, key.NewBinding(key.WithKeys("s"))):
+			if m.activeTab == TabSearch && m.views.SearchIsInInputMode() {
+				break
+			}
 			if m.state == stateSwitchingServer {
 				telemetry.Count("switch.ignored.in_progress")
 				return m, nil

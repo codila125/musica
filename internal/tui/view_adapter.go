@@ -69,3 +69,7 @@ func (v *viewAdapter) View(tab Tab) string {
 		return ""
 	}
 }
+
+func (v *viewAdapter) SearchIsInInputMode() bool {
+	return v.search.InInputMode()
+}

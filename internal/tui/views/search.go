@@ -89,6 +89,10 @@ func (m SearchModel) Init() tea.Cmd {
 	return textinput.Blink
 }
 
+func (m SearchModel) InInputMode() bool {
+	return m.state == SearchInput
+}
+
 func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 	var cmds []tea.Cmd
 

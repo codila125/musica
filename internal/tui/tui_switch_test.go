@@ -120,3 +120,30 @@ func TestSwitchUsesCoordinatorResult(t *testing.T) {
 		t.Fatalf("expected switching state")
 	}
 }
+
+func TestSearchInputAllowsSTypeWithoutServerSwitch(t *testing.T) {
+	pl, err := player.New()
+	if err != nil {
+		t.Fatalf("new player: %v", err)
+	}
+	defer pl.Close()
+
+	servers := []config.ServerConfig{{Name: "A"}, {Name: "B"}}
+	m := NewModel(fakeClient{}, pl, servers, 0)
+	m.state = stateReady
+	m.activeTab = TabSearch
+	m.coordinator = fakeCoordinator{nextIndex: 1, nextOK: true, result: app.SwitchResult{Client: fakeClient{}, Index: 1}}
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	model := updated.(Model)
+
+	if model.state == stateSwitchingServer {
+		t.Fatalf("expected 's' in search input to avoid triggering server switch")
+	}
+	if model.currentServer != 0 {
+		t.Fatalf("expected server index to remain unchanged")
+	}
+	if !model.views.SearchIsInInputMode() {
+		t.Fatalf("expected search view to remain in input mode")
+	}
+}
