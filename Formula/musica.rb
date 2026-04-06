@@ -3,7 +3,7 @@ class Musica < Formula
   homepage "https://github.com/codila125/musica"
   url "https://github.com/codila125/musica/archive/refs/tags/v0.0.0.tar.gz"
   sha256 "REPLACE_WITH_RELEASE_TARBALL_SHA256"
-  license "NOASSERTION"
+  license "MIT"
 
   depends_on "go" => :build
   depends_on "mpv"
