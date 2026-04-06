@@ -1,64 +1,60 @@
-# MUSICA :: Retro Terminal Deck
+# MUSICA
 
-```text
-╔═══════════════════════════════════════════════════════════════╗
-║  MUSICA                                                       ║
-║  TUI music player for Navidrome + Jellyfin                    ║
-║  Cassette vibes. Keyboard first. No mouse required.           ║
-╚═══════════════════════════════════════════════════════════════╝
-```
+Retro terminal music player for Navidrome and Jellyfin.
 
-MUSICA is a terminal-based music player with a retro cassette UI, multi-server support,
-and a clean architecture that separates UI, app orchestration, and API integrations.
+MUSICA is a keyboard-first TUI app with cassette-deck vibes. It runs in your terminal, lets you browse and search your library, and manage a playback queue without a mouse.
 
 ## Features
 
-- Retro TUI with `BROWSE`, `SEARCH`, and `QUEUE` tabs
-- Works with both Navidrome and Jellyfin servers
-- Runtime server switching (with playback stop + data refetch)
-- Adaptive track table layout (song name prioritized on narrow terminals)
-- Async request cancellation + stale-response protection
-- Typed API error model and state-machine guarded transitions
-- Test backend for mpv (`testmpv`) so CI can run without native `libmpv`
+- Retro terminal UI with `BROWSE`, `SEARCH`, and `QUEUE` tabs
+- Works with both Navidrome and Jellyfin
+- Fast keyboard navigation and queue-based playback
+- Runtime server switching
+- Clean first-run flow with guided setup
 
-## Quick Start
+## Install
 
-### 1) Prerequisites
+### Homebrew (recommended)
+
+```bash
+brew tap <you>/tap
+brew install musica
+```
+
+### From source
+
+Prerequisites:
 
 - Go `1.26+`
-- `mpv` + `libmpv` (for normal runtime playback)
+- `mpv` + `libmpv`
 
-### 2) Build
+Build:
 
 ```bash
 go build -o musica ./cmd
 ```
 
-### 3) Setup a server
+## First-time setup
+
+Run:
 
 ```bash
-./musica setup
+musica setup
 ```
 
-### 4) Run
+Then start the player:
 
 ```bash
-./musica
+musica
 ```
 
-If this is your first run with no configured servers, MUSICA exits cleanly and prints:
+If no servers are configured yet, MUSICA exits cleanly and shows:
 
 ```text
 No servers configured. Run: musica setup
 ```
 
-Use a specific server:
-
-```bash
-./musica --server my-server
-```
-
-## CLI Commands
+## Basic commands
 
 ```bash
 musica setup
@@ -67,62 +63,32 @@ musica remove <server-name>
 musica --server <server-name>
 ```
 
-## Keybindings (TUI)
+## Keybindings
 
 - Global
-  - `tab` / `shift+tab`: switch main tabs
+  - `tab` / `shift+tab`: switch tabs
   - `s`: switch server
   - `ctrl+q` / `ctrl+c`: quit
-
 - Browse
   - `j/k` or arrows: move
   - `enter` / `p`: play/pause selected track
   - `q`: add selected track to queue
   - `r`: refresh recent tracks
-
 - Search
   - `enter`: search (input mode) / play (results mode)
-  - `left/right` (or `h/l`): switch category
+  - `left/right` or `h/l`: switch category
   - `p`: play/pause selected track
   - `q`: queue selected track
   - `esc`: back to input mode
-
 - Queue
   - `j/k` or arrows: move
   - `enter` / `p`: play/pause selected queue track
 
-## Architecture
+## Troubleshooting
 
-```text
-cmd/main.go
-  -> internal/tui            (presentation + event loop)
-  -> internal/app            (orchestration/controllers)
-  -> internal/api/*          (Navidrome/Jellyfin adapters)
-  -> internal/player         (mpv integration + test backend)
-  -> internal/tui/views      (tab view models + renderers)
-  -> internal/telemetry      (structured events/counters/timing)
-```
+### `libmpv` load error on startup
 
-### Notable modules
-
-- `internal/app/coordinator.go`: server switch/connect orchestration
-- `internal/app/playback_controller.go`: playback command orchestration
-- `internal/tui/view_adapter.go`: centralized view lifecycle/update wiring
-- `internal/tui/state.go`: app state machine + transition validation
-
-## Development
-
-### Run tests without native mpv
-
-```bash
-go test -tags=testmpv ./...
-```
-
-### Build tags and `libmpv` runtime behavior
-
-- `testmpv` is for tests/CI and does not require native `libmpv`.
-- `nocgo` is for runtime/release binaries and requires `libmpv` to be discoverable before process start.
-- Do not rely on in-app env changes for `libmpv` discovery; set library paths in the launcher/wrapper.
+Install `mpv` first, then ensure your loader path includes mpv libs.
 
 On macOS (Homebrew):
 
@@ -136,51 +102,12 @@ On Linux:
 export LD_LIBRARY_PATH="<mpv-lib-dir>${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 ```
 
-If startup fails with a `libmpv` load error, verify `mpv` is installed and the matching env var includes the directory that contains `libmpv`.
+If you are using `run.sh` locally, it already tries to detect and set these paths automatically.
 
-### Full local quality gates
+## Documentation
 
-Install once:
-
-```bash
-go install honnef.co/go/tools/cmd/staticcheck@latest
-go install golang.org/x/vuln/cmd/govulncheck@latest
-```
-
-Run:
-
-```bash
-make ci
-```
-
-This runs formatting checks, vet, static analysis, vuln checks, unit tests, and race tests.
-
-## CI
-
-GitHub Actions workflow is in:
-
-- `.github/workflows/ci.yml`
-
-Quality gates are documented in:
-
-- `docs/ci.md`
-
-Reliability/fault-injection notes are in:
-
-- `docs/reliability.md`
-
-Config/security validation notes are in:
-
-- `docs/config.md`
-
-Operations and UX hardening notes are in:
-
-- `docs/operations.md`
-
-## Developer note
-
-- `run.sh` is a local development helper and is not part of the production/Homebrew user flow.
-
-## License
-
-No license file is currently present in this repository.
+- Developer guide: `docs/developer.md`
+- CI and quality gates: `docs/ci.md`
+- Reliability notes: `docs/reliability.md`
+- Config and validation: `docs/config.md`
+- Operations/UX hardening: `docs/operations.md`
