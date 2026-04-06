@@ -82,15 +82,15 @@ func runRemove(name string) error {
 	return nil
 }
 
-func runPlayer(serverName string) {
+func runPlayer(serverName string) error {
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		return fmt.Errorf("load config: %w", err)
 	}
 
 	if len(cfg.Servers) == 0 {
-		fmt.Println("No servers configured. Run 'musica setup' to add one.")
-		os.Exit(1)
+		fmt.Println("No servers configured. Run: musica setup")
+		return nil
 	}
 
 	if serverName == "" {
@@ -113,7 +113,7 @@ func runPlayer(serverName string) {
 		for _, s := range cfg.Servers {
 			fmt.Printf("  - %s (%s)\n", s.Name, s.Type)
 		}
-		os.Exit(1)
+		return fmt.Errorf("server %q not found", serverName)
 	}
 
 	var client interface{}
@@ -130,15 +130,15 @@ func runPlayer(serverName string) {
 
 	if nc, ok := client.(*navidrome.Client); ok {
 		if err := nc.Ping(ctx); err != nil {
-			log.Fatalf("Failed to connect to Navidrome: %v", err)
+			return fmt.Errorf("connect to navidrome: %w", err)
 		}
 		fmt.Printf("Connected to Navidrome: %s\n", serverCfg.Name)
 	} else if jc, ok := client.(*jellyfin.Client); ok {
 		if err := jc.Ping(ctx); err != nil {
-			log.Fatalf("Failed to connect to Jellyfin: %v", err)
+			return fmt.Errorf("connect to jellyfin: %w", err)
 		}
 		if err := jc.Authenticate(ctx, serverCfg.Username, serverCfg.Password); err != nil {
-			log.Fatalf("Failed to authenticate with Jellyfin: %v", err)
+			return fmt.Errorf("authenticate with jellyfin: %w", err)
 		}
 		fmt.Printf("Connected to Jellyfin: %s\n", serverCfg.Name)
 	}
@@ -147,9 +147,9 @@ func runPlayer(serverName string) {
 	if err != nil {
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "mpv/client.h") || strings.Contains(errMsg, "libmpv") {
-			log.Fatalf("Failed to initialize player: %v\nHint: install mpv/libmpv and ensure it is on your library path.", err)
+			return fmt.Errorf("initialize player: %w\nHint: install mpv/libmpv and ensure it is on your library path", err)
 		}
-		log.Fatalf("Failed to initialize player: %v", err)
+		return fmt.Errorf("initialize player: %w", err)
 	}
 	defer pl.Close()
 	go pl.Monitor(nil)
@@ -174,8 +174,10 @@ func runPlayer(serverName string) {
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
-		log.Fatalf("Error running TUI: %v", err)
+		return fmt.Errorf("run tui: %w", err)
 	}
+
+	return nil
 }
 
 func main() {
@@ -209,7 +211,9 @@ func main() {
 	serverName := flag.String("server", "", "Server name to connect to")
 	flag.Parse()
 
-	runPlayer(*serverName)
+	if err := runPlayer(*serverName); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func printUsage() {

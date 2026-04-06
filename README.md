@@ -46,6 +46,12 @@ go build -o musica ./cmd
 ./musica
 ```
 
+If this is your first run with no configured servers, MUSICA exits cleanly and prints:
+
+```text
+No servers configured. Run: musica setup
+```
+
 Use a specific server:
 
 ```bash
@@ -150,6 +156,10 @@ Config/security validation notes are in:
 Operations and UX hardening notes are in:
 
 - `docs/operations.md`
+
+## Developer note
+
+- `run.sh` is a local development helper and is not part of the production/Homebrew user flow.
 
 ## License
 
