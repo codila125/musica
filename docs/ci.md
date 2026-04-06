@@ -5,11 +5,13 @@ This project uses CI gates to enforce baseline code quality and reliability.
 ## Gates
 
 - `gofmt` formatting check
-- `go vet`
-- `staticcheck`
-- `govulncheck`
+- `go vet -tags testmpv ./...`
+- `staticcheck -tags testmpv ./...`
+- `govulncheck -tags testmpv ./...`
 - unit tests using `testmpv` tag
 - race tests on core packages using `testmpv` tag
+- CI matrix on `ubuntu-latest` and `macos-latest`
+- release-tag smoke build: `go build -trimpath -tags nocgo -o musica ./cmd`
 
 ## Local run
 
@@ -24,6 +26,12 @@ Run full local CI pipeline:
 
 ```bash
 make ci
+```
+
+Run local release gates (quality + nocgo smoke build):
+
+```bash
+make ci-release
 ```
 
 ## Why `testmpv`?

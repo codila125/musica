@@ -118,6 +118,26 @@ cmd/main.go
 go test -tags=testmpv ./...
 ```
 
+### Build tags and `libmpv` runtime behavior
+
+- `testmpv` is for tests/CI and does not require native `libmpv`.
+- `nocgo` is for runtime/release binaries and requires `libmpv` to be discoverable before process start.
+- Do not rely on in-app env changes for `libmpv` discovery; set library paths in the launcher/wrapper.
+
+On macOS (Homebrew):
+
+```bash
+export DYLD_FALLBACK_LIBRARY_PATH="$(brew --prefix mpv)/lib${DYLD_FALLBACK_LIBRARY_PATH:+:$DYLD_FALLBACK_LIBRARY_PATH}"
+```
+
+On Linux:
+
+```bash
+export LD_LIBRARY_PATH="<mpv-lib-dir>${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+```
+
+If startup fails with a `libmpv` load error, verify `mpv` is installed and the matching env var includes the directory that contains `libmpv`.
+
 ### Full local quality gates
 
 Install once:

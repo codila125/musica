@@ -11,8 +11,13 @@ permissions:
 
 jobs:
   quality:
-    runs-on: ubuntu-latest
+    name: quality (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
 
     steps:
       - name: Checkout
@@ -24,7 +29,8 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Install libmpv headers
+      - name: Install libmpv headers (linux only)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libmpv-dev pkg-config
@@ -41,23 +47,46 @@ jobs:
       - name: Download modules
         run: go mod download
 
-      - name: Run go vet
-        run: go vet ./...
+      - name: Run go vet (testmpv)
+        run: go vet -tags testmpv ./...
 
       - name: Install staticcheck
         run: go install honnef.co/go/tools/cmd/staticcheck@latest
 
-      - name: Run staticcheck
-        run: staticcheck ./...
+      - name: Run staticcheck (testmpv)
+        run: staticcheck -tags testmpv ./...
 
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
 
-      - name: Run govulncheck
-        run: govulncheck ./...
+      - name: Run govulncheck (testmpv)
+        run: govulncheck -tags testmpv ./...
 
       - name: Test (testmpv)
         run: go test -tags=testmpv ./...
 
       - name: Race tests (testmpv)
         run: go test -race -tags=testmpv ./internal/app ./internal/api ./internal/tui ./internal/tui/views
+
+  release-smoke:
+    name: release-smoke (${{ matrix.os }})
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: nocgo release build
+        run: go build -trimpath -tags nocgo -o musica ./cmd
