@@ -12,13 +12,45 @@ MUSICA is a keyboard-first TUI app with cassette-deck vibes. It runs in your ter
 - Runtime server switching
 - Clean first-run flow with guided setup
 
-## Install
+## Homebrew install
 
-### Homebrew
+### 1) Tap the repository
 
 ```bash
-brew tap <you>/tap
+brew tap codile125/tap
+```
+
+### 2) Install MUSICA
+
+```bash
 brew install musica
+```
+
+### 3) Confirm installation
+
+```bash
+musica help
+```
+
+### 4) First-time setup
+
+```bash
+musica setup
+musica
+```
+
+### Update to latest release
+
+```bash
+brew update
+brew upgrade musica
+```
+
+### Uninstall
+
+```bash
+brew uninstall musica
+brew untap codile125/tap
 ```
 
 ## First-time setup
