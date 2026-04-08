@@ -26,14 +26,14 @@ func TestRapidSwitchSpamIgnoredWhileSwitching(t *testing.T) {
 	m.state = stateReady
 	m.coordinator = fakeCoordinator{nextIndex: 1, nextOK: true, result: app.SwitchResult{Client: fakeClient{}, Index: 1}}
 
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
 	if cmd == nil {
 		t.Fatalf("expected switch command on first keypress")
 	}
 	model := updated.(Model)
 
 	for i := 0; i < 10; i++ {
-		nextUpdated, nextCmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+		nextUpdated, nextCmd := model.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
 		if nextCmd != nil {
 			t.Fatalf("expected no command while switching (iteration %d)", i)
 		}
@@ -59,7 +59,7 @@ func TestSwitchAuthFailureTransition(t *testing.T) {
 		},
 	}
 
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
 	if cmd == nil {
 		t.Fatalf("expected switch command")
 	}
@@ -97,7 +97,7 @@ func TestSwitchRecoveryAfterNetworkFailure(t *testing.T) {
 		},
 	}
 
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
 	if cmd == nil {
 		t.Fatalf("expected switch command")
 	}
@@ -110,7 +110,7 @@ func TestSwitchRecoveryAfterNetworkFailure(t *testing.T) {
 
 	// Second attempt succeeds.
 	model.coordinator = fakeCoordinator{nextIndex: 1, nextOK: true, result: app.SwitchResult{Client: fakeClient{}, Index: 1}}
-	updated3, cmd2 := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	updated3, cmd2 := model.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
 	if cmd2 == nil {
 		t.Fatalf("expected switch command on recovery attempt")
 	}

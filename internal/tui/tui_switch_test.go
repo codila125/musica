@@ -88,7 +88,7 @@ func TestSwitchGuardPreventsConcurrentSwitches(t *testing.T) {
 	m.state = stateSwitchingServer
 	m.coordinator = fakeCoordinator{nextOK: false}
 
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
 	model := updated.(Model)
 
 	if model.state != stateSwitchingServer {
@@ -111,7 +111,7 @@ func TestSwitchUsesCoordinatorResult(t *testing.T) {
 	m.state = stateReady
 	m.coordinator = fakeCoordinator{nextIndex: 1, nextOK: true, result: app.SwitchResult{Client: fakeClient{}, Index: 1}}
 
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
 	if cmd == nil {
 		t.Fatalf("expected switch command")
 	}
