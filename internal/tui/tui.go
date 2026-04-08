@@ -133,7 +133,7 @@ func (m Model) Init() tea.Cmd {
 }
 
 func uiTickCmd() tea.Cmd {
-	return tea.Tick(200*time.Millisecond, func(t time.Time) tea.Msg {
+	return tea.Tick(500*time.Millisecond, func(t time.Time) tea.Msg {
 		return uiTickMsg(t)
 	})
 }
@@ -382,7 +382,18 @@ func (m Model) renderFooter(w int) string {
 	// Server info
 	serverInfo := ""
 	if len(m.servers) > 0 {
-		serverInfo = statusStyle.Render("◉ " + m.servers[m.currentServer].Name)
+		ledStyle := lipgloss.NewStyle().Foreground(colorGreen).Bold(true)
+		nameStyle := lipgloss.NewStyle().Foreground(colorGreen).Bold(true)
+		offStyle := lipgloss.NewStyle().Foreground(colorDimText)
+		var led, name string
+		if m.blinkOn {
+			led = ledStyle.Render("◉")
+			name = nameStyle.Render(m.servers[m.currentServer].Name)
+		} else {
+			led = offStyle.Render("◉")
+			name = offStyle.Render(m.servers[m.currentServer].Name)
+		}
+		serverInfo = led + name
 	}
 
 	// Now playing
