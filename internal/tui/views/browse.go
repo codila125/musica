@@ -213,8 +213,8 @@ func (m BrowseModel) View() string {
 	}
 
 	lines = append(lines, divider)
-	lines = append(lines, retroSubtleStyle.Render(fmt.Sprintf("  Track %d of %d", m.cursor+1, len(m.tracks))))
-	lines = append(lines, keys)
+	lines = append(lines, retroSubtleStyle.Align(lipgloss.Center).Width(innerW).Render(fmt.Sprintf("Track %d of %d", m.cursor+1, len(m.tracks))))
+	lines = append(lines, retroSubtleStyle.Align(lipgloss.Center).Width(innerW).Render(keys))
 
 	content := strings.Join(lines, "\n")
 	return boxStyle.Render(content)

@@ -79,7 +79,6 @@ func (m QueueModel) View() string {
 
 	title := retroTitleStyle.Render("◎ TAPE QUEUE")
 	divider := listDivider(w - 8)
-	keys := retroSubtleStyle.Render("[p]lay/pause  [j/k]scroll")
 
 	if len(queue) == 0 {
 		content := lipgloss.JoinVertical(lipgloss.Left,
@@ -90,7 +89,7 @@ func (m QueueModel) View() string {
 			retroSubtleStyle.Render("  Add tracks from Browse tab"),
 			"",
 			divider,
-			keys,
+			retroSubtleStyle.Align(lipgloss.Center).Width(w-8).Render("[p]lay/pause  [j/k]scroll"),
 		)
 		return boxStyle.Render(content)
 	}
@@ -165,8 +164,8 @@ func (m QueueModel) View() string {
 	}
 
 	lines = append(lines, divider)
-	lines = append(lines, retroSubtleStyle.Render(fmt.Sprintf("  Track %d of %d", m.cursor+1, len(queue))))
-	lines = append(lines, keys)
+	lines = append(lines, retroSubtleStyle.Align(lipgloss.Center).Width(innerW).Render(fmt.Sprintf("Track %d of %d", m.cursor+1, len(queue))))
+	lines = append(lines, retroSubtleStyle.Align(lipgloss.Center).Width(innerW).Render("[p]lay/pause  [j/k]scroll"))
 
 	content := strings.Join(lines, "\n")
 	return boxStyle.Render(content)

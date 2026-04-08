@@ -260,7 +260,6 @@ func (m SearchModel) View() string {
 func (m SearchModel) renderInputView(boxStyle lipgloss.Style, w int) string {
 	title := retroTitleStyle.Render("◎ SEARCH DECK")
 	divider := listDivider(w - 8)
-	keys := retroSubtleStyle.Render("[enter]search  [esc]back")
 
 	searchBox := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -277,7 +276,7 @@ func (m SearchModel) renderInputView(boxStyle lipgloss.Style, w int) string {
 		"  "+searchBox,
 		"",
 		divider,
-		keys,
+		retroSubtleStyle.Align(lipgloss.Center).Width(w-8).Render("[enter]search  [esc]back"),
 	)
 	return boxStyle.Render(content)
 }
@@ -319,7 +318,7 @@ func (m SearchModel) renderResultsView(boxStyle lipgloss.Style, w, h int) string
 		divider,
 		resultContent,
 		divider,
-		keys,
+		retroSubtleStyle.Align(lipgloss.Center).Width(innerW).Render(keys),
 	)
 	return boxStyle.Render(content)
 }
@@ -417,7 +416,7 @@ func (m SearchModel) renderTracks(w, h int) string {
 		lines = append(lines, line)
 	}
 
-	lines = append(lines, retroSubtleStyle.Render(fmt.Sprintf("  Track %d of %d", m.cursor+1, len(m.results.Tracks))))
+	lines = append(lines, retroSubtleStyle.Align(lipgloss.Center).Width(w).Render(fmt.Sprintf("Track %d of %d", m.cursor+1, len(m.results.Tracks))))
 	return strings.Join(lines, "\n")
 }
 
