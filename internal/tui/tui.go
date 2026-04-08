@@ -154,7 +154,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, key.NewBinding(key.WithKeys("s"))):
+		case key.Matches(msg, key.NewBinding(key.WithKeys("ctrl+s"))):
 			if m.activeTab == TabSearch && m.views.SearchIsInInputMode() {
 				break
 			}
@@ -399,7 +399,7 @@ func (m Model) renderFooter(w int) string {
 	}
 
 	// Key hints
-	hints := footerStyle.Render("[tab]switch [s]server [ctrl+q]quit")
+	hints := footerStyle.Render("[tab]switch [ctrl+s]server [ctrl+q]quit")
 
 	// Status line
 	statusLine := ""

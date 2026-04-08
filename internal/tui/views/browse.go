@@ -70,7 +70,7 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 			if len(m.tracks) > 0 {
 				m.err = m.playback.ToggleTrack(m.tracks[m.cursor])
 			}
-		case "r":
+		case "ctrl+r":
 			return m.beginLoadRecentTracks()
 		case "q":
 			if len(m.tracks) > 0 {
@@ -136,7 +136,7 @@ func (m BrowseModel) View() string {
 	innerW := w - 8
 	title := retroTitleStyle.Render("◎ TRACK LIBRARY")
 	divider := listDivider(innerW)
-	keys := retroSubtleStyle.Render("[p]lay/pause  [q]ueue  [r]efresh  [j/k]scroll")
+	keys := retroSubtleStyle.Render("[p]lay/pause  [q]ueue  [ctrl+r]efresh  [j/k]scroll")
 
 	if len(m.tracks) == 0 {
 		content := lipgloss.JoinVertical(lipgloss.Left,
