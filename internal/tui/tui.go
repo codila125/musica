@@ -89,10 +89,6 @@ var (
 	footerStyle = lipgloss.NewStyle().
 			Foreground(colorDimText)
 
-	statusStyle = lipgloss.NewStyle().
-			Foreground(colorGreen).
-			Bold(true)
-
 	helpTitleStyle = lipgloss.NewStyle().
 			Foreground(colorYellow).
 			Bold(true)
