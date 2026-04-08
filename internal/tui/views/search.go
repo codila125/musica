@@ -276,7 +276,6 @@ func (m SearchModel) renderInputView(boxStyle lipgloss.Style, w int) string {
 		"  "+searchBox,
 		"",
 		divider,
-		retroSubtleStyle.Align(lipgloss.Center).Width(w-8).Render("[enter]search  [esc]back"),
 	)
 	return boxStyle.Render(content)
 }
@@ -284,7 +283,6 @@ func (m SearchModel) renderInputView(boxStyle lipgloss.Style, w int) string {
 func (m SearchModel) renderResultsView(boxStyle lipgloss.Style, w, h int) string {
 	title := retroTitleStyle.Render("◎ SEARCH RESULTS")
 	divider := listDivider(w - 8)
-	keys := retroSubtleStyle.Render("[left/right]category [enter/p]play [q]ueue [esc]back")
 
 	innerW := w - 8
 
@@ -318,7 +316,6 @@ func (m SearchModel) renderResultsView(boxStyle lipgloss.Style, w, h int) string
 		divider,
 		resultContent,
 		divider,
-		retroSubtleStyle.Align(lipgloss.Center).Width(innerW).Render(keys),
 	)
 	return boxStyle.Render(content)
 }

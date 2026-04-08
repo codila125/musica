@@ -44,6 +44,7 @@ type Model struct {
 	blinkOn       bool
 	state         appState
 	coordinator   switchCoordinator
+	helpVisible   bool
 }
 
 // Colors
@@ -90,6 +91,10 @@ var (
 
 	statusStyle = lipgloss.NewStyle().
 			Foreground(colorGreen).
+			Bold(true)
+
+	helpTitleStyle = lipgloss.NewStyle().
+			Foreground(colorYellow).
 			Bold(true)
 
 	nowPlayingStyle = lipgloss.NewStyle().
@@ -178,6 +183,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case key.Matches(msg, key.NewBinding(key.WithKeys("shift+tab"))):
 			m.activeTab = (m.activeTab - 1 + Tab(len(m.tabs))) % Tab(len(m.tabs))
+			return m, nil
+		case key.Matches(msg, key.NewBinding(key.WithKeys("h"))):
+			m.helpVisible = !m.helpVisible
 			return m, nil
 		case key.Matches(msg, key.NewBinding(key.WithKeys("ctrl+c", "ctrl+q"))):
 			return m, tea.Quit
@@ -282,7 +290,14 @@ func (m Model) View() string {
 		Width(w).
 		Height(h)
 
-	return frame.Render(body)
+	output := frame.Render(body)
+
+	if m.helpVisible {
+		help := m.renderHelp(w, h)
+		output = lipgloss.JoinVertical(lipgloss.Left, output, help)
+	}
+
+	return output
 }
 
 func (m Model) renderHeader(w int) string {
@@ -410,7 +425,7 @@ func (m Model) renderFooter(w int) string {
 	}
 
 	// Key hints
-	hints := footerStyle.Render("[tab]switch [ctrl+s]server [ctrl+q]quit")
+	hints := footerStyle.Render("[h]help [tab]switch [ctrl+s]server [ctrl+q]quit")
 
 	// Status line
 	statusLine := ""
@@ -427,6 +442,66 @@ func (m Model) renderFooter(w int) string {
 		return lipgloss.JoinVertical(lipgloss.Left, line, infoLine, statusLine)
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, line, infoLine)
+}
+
+func (m Model) renderHelp(w, h int) string {
+	helpBox := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(colorAmber).
+		Width(w-6).
+		Padding(1, 2)
+
+	helpSectionStyle := lipgloss.NewStyle().
+		Foreground(colorAmber).
+		Bold(true)
+
+	lines := []string{
+		helpTitleStyle.Render(" ◎ KEYBOARD SHORTCUTS "),
+		"",
+		footerStyle.Render("  [h]          Toggle this help"),
+		footerStyle.Render("  [tab]        Switch between tabs"),
+		footerStyle.Render("  [shift+tab]  Previous tab"),
+		footerStyle.Render("  [ctrl+s]     Switch server"),
+		footerStyle.Render("  [ctrl+r]     Refresh (Browse tab)"),
+		footerStyle.Render("  [ctrl+q]     Quit application"),
+		"",
+		helpTitleStyle.Render(" ◎ TAB SPECIFIC "),
+		"",
+	}
+
+	switch m.activeTab {
+	case TabBrowse:
+		lines = append(lines,
+			helpSectionStyle.Render("  ─── TRACK LIBRARY ───"),
+			footerStyle.Render("  [j/k] or [↓/↑]  Navigate up/down"),
+			footerStyle.Render("  [p] or [enter]  Play/pause track"),
+			footerStyle.Render("  [q]            Add to queue"),
+			footerStyle.Render("  [ctrl+r]       Refresh tracks"),
+		)
+	case TabSearch:
+		lines = append(lines,
+			helpSectionStyle.Render("  ─── SEARCH DECK ───"),
+			footerStyle.Render("  [type]           Enter search query"),
+			footerStyle.Render("  [enter]          Start search"),
+			footerStyle.Render("  [esc]            Back to input"),
+			"",
+			helpSectionStyle.Render("  ─── SEARCH RESULTS ───"),
+			footerStyle.Render("  [j/k] or [↓/↑]  Navigate up/down"),
+			footerStyle.Render("  [p] or [enter]  Play track"),
+			footerStyle.Render("  [q]            Add to queue"),
+			footerStyle.Render("  [←/→] or [l/r]  Switch category (Tracks/Albums/Artists)"),
+		)
+	case TabQueue:
+		lines = append(lines,
+			helpSectionStyle.Render("  ─── TAPE QUEUE ───"),
+			footerStyle.Render("  [j/k] or [↓/↑]  Navigate up/down"),
+			footerStyle.Render("  [p] or [enter]  Play/pause track"),
+		)
+	}
+
+	lines = append(lines, "", footerStyle.Render("  Press [h] to close"))
+
+	return helpBox.Render(strings.Join(lines, "\n"))
 }
 
 func (m Model) switchServerCmd(index int) tea.Cmd {

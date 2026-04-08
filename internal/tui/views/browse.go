@@ -136,7 +136,6 @@ func (m BrowseModel) View() string {
 	innerW := w - 8
 	title := retroTitleStyle.Render("◎ TRACK LIBRARY")
 	divider := listDivider(innerW)
-	keys := retroSubtleStyle.Render("[p]lay/pause  [q]ueue  [ctrl+r]efresh  [j/k]scroll")
 
 	if len(m.tracks) == 0 {
 		content := lipgloss.JoinVertical(lipgloss.Left,
@@ -144,10 +143,8 @@ func (m BrowseModel) View() string {
 			divider,
 			"",
 			retroSubtleStyle.Render("  No tracks found"),
-			retroSubtleStyle.Render("  Press [r] to refresh"),
 			"",
 			divider,
-			keys,
 		)
 		return boxStyle.Render(content)
 	}
@@ -214,7 +211,6 @@ func (m BrowseModel) View() string {
 
 	lines = append(lines, divider)
 	lines = append(lines, retroSubtleStyle.Align(lipgloss.Center).Width(innerW).Render(fmt.Sprintf("Track %d of %d", m.cursor+1, len(m.tracks))))
-	lines = append(lines, retroSubtleStyle.Align(lipgloss.Center).Width(innerW).Render(keys))
 
 	content := strings.Join(lines, "\n")
 	return boxStyle.Render(content)
