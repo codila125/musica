@@ -17,6 +17,7 @@ func (f fakeClient) Ping(ctx context.Context) error { return nil }
 func (f fakeClient) GetRecentTracks(ctx context.Context, limit int) ([]models.Track, error) {
 	return nil, nil
 }
+func (f fakeClient) GetRecentTracksCount(ctx context.Context) (int, error) { return 0, nil }
 func (f fakeClient) GetArtists(ctx context.Context) ([]models.Artist, error) { return nil, nil }
 func (f fakeClient) GetAlbums(ctx context.Context, artistID string) ([]models.Album, error) {
 	return nil, nil

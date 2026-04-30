@@ -17,11 +17,15 @@ import (
 type fakeAPIClient struct {
 	recent []models.Track
 	err    error
+	count  int
 }
 
 func (f fakeAPIClient) Ping(ctx context.Context) error { return nil }
 func (f fakeAPIClient) GetRecentTracks(ctx context.Context, limit int) ([]models.Track, error) {
 	return f.recent, f.err
+}
+func (f fakeAPIClient) GetRecentTracksCount(ctx context.Context) (int, error) {
+	return f.count, f.err
 }
 func (f fakeAPIClient) GetArtists(ctx context.Context) ([]models.Artist, error) { return nil, nil }
 func (f fakeAPIClient) GetAlbums(ctx context.Context, artistID string) ([]models.Album, error) {

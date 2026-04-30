@@ -10,6 +10,7 @@ import (
 type Client interface {
 	Ping(ctx context.Context) error
 	GetRecentTracks(ctx context.Context, limit int) ([]models.Track, error)
+	GetRecentTracksCount(ctx context.Context) (int, error)
 	GetArtists(ctx context.Context) ([]models.Artist, error)
 	GetAlbums(ctx context.Context, artistID string) ([]models.Album, error)
 	GetTracks(ctx context.Context, albumID string) ([]models.Track, error)

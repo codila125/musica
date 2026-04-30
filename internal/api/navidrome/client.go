@@ -256,6 +256,10 @@ func (c *Client) GetRecentTracks(ctx context.Context, limit int) ([]models.Track
 	return tracks, nil
 }
 
+func (c *Client) GetRecentTracksCount(ctx context.Context) (int, error) {
+	return -1, nil
+}
+
 func (c *Client) GetArtists(ctx context.Context) ([]models.Artist, error) {
 	var resp subsonicResponse
 	params := c.authParams()

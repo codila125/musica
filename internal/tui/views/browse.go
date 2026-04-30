@@ -23,6 +23,7 @@ type BrowseModel struct {
 	tracks     []models.Track
 	page       int
 	total      int
+	totalKnown bool
 	cursor     int
 	width      int
 	height     int
@@ -36,6 +37,7 @@ type browseTracksMsg struct {
 	id     int64
 	tracks []models.Track
 	limit  int
+	count  int
 	err    error
 }
 
@@ -125,7 +127,12 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 			m.err = msg.err
 			return m, nil
 		}
-		m.total = len(msg.tracks)
+		m.totalKnown = msg.count >= 0
+		if m.totalKnown {
+			m.total = msg.count
+		} else {
+			m.total = len(msg.tracks)
+		}
 		pageSize := browsePageSize
 		maxPage := 0
 		if m.total > 0 {
@@ -141,6 +148,12 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 		}
 		if end > m.total {
 			end = m.total
+		}
+		if start > len(msg.tracks) {
+			start = len(msg.tracks)
+		}
+		if end > len(msg.tracks) {
+			end = len(msg.tracks)
 		}
 		m.tracks = append([]models.Track(nil), msg.tracks[start:end]...)
 		if m.cursor >= len(m.tracks) {
@@ -261,7 +274,11 @@ func (m BrowseModel) View() string {
 	if m.total > 0 {
 		pageLabel = fmt.Sprintf("  Page %d of %d", m.page+1, (m.total-1)/browsePageSize+1)
 	}
-	lines = append(lines, retroSubtleStyle.Align(lipgloss.Center).Width(innerW).Render(fmt.Sprintf("Track %d of %d (Total %d)%s", m.cursor+1, len(m.tracks), m.total, pageLabel)))
+	totalLabel := ""
+	if m.totalKnown && m.total > 0 {
+		totalLabel = fmt.Sprintf(" (Total %d)", m.total)
+	}
+	lines = append(lines, retroSubtleStyle.Align(lipgloss.Center).Width(innerW).Render(fmt.Sprintf("Track %d of %d%s%s", m.cursor+1, len(m.tracks), totalLabel, pageLabel)))
 
 	content := strings.Join(lines, "\n")
 	return boxStyle.Render(content)
@@ -330,7 +347,11 @@ func (m BrowseModel) loadRecentTracksCmd(id int64) tea.Cmd {
 
 		limit := (m.page + 1) * browsePageSize
 		tracks, err := m.apiClient.GetRecentTracks(ctx, limit)
-		return browseTracksMsg{id: id, tracks: tracks, limit: limit, err: err}
+		count, countErr := m.apiClient.GetRecentTracksCount(ctx)
+		if countErr != nil {
+			count = -1
+		}
+		return browseTracksMsg{id: id, tracks: tracks, limit: limit, count: count, err: err}
 	}
 }
 
@@ -338,7 +359,11 @@ func (m BrowseModel) loadRecentTracksCmdWithContext(id int64, ctx context.Contex
 	return func() tea.Msg {
 		limit := (m.page + 1) * browsePageSize
 		tracks, err := m.apiClient.GetRecentTracks(ctx, limit)
-		return browseTracksMsg{id: id, tracks: tracks, limit: limit, err: err}
+		count, countErr := m.apiClient.GetRecentTracksCount(ctx)
+		if countErr != nil {
+			count = -1
+		}
+		return browseTracksMsg{id: id, tracks: tracks, limit: limit, count: count, err: err}
 	}
 }
 

@@ -267,6 +267,28 @@ func (c *Client) GetRecentTracks(ctx context.Context, limit int) ([]models.Track
 	return tracks, nil
 }
 
+func (c *Client) GetRecentTracksCount(ctx context.Context) (int, error) {
+	var resp struct {
+		TotalRecordCount int `json:"TotalRecordCount"`
+	}
+
+	params := url.Values{
+		"UserId":           {c.userID},
+		"IncludeItemTypes": {"Audio"},
+		"Recursive":        {"true"},
+		"SortBy":           {"DateCreated,SortName"},
+		"SortOrder":        {"Descending"},
+		"Limit":            {"1"},
+		"Fields":           {""},
+	}
+
+	if err := c.doRequest(ctx, "/Items", params, &resp); err != nil {
+		return 0, err
+	}
+
+	return resp.TotalRecordCount, nil
+}
+
 func (c *Client) GetArtists(ctx context.Context) ([]models.Artist, error) {
 	var resp struct {
 		Items []jellyfinArtist `json:"Items"`
