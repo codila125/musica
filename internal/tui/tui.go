@@ -612,15 +612,15 @@ func (m Model) renderSoundBars(w int) string {
 		maxHeight = 7
 	)
 	phaseBase := float64(m.barFrame) * 0.18
-    var bars strings.Builder
-    for i := 0; i < barCount; i++ {
-        if i > 0 {
-            bars.WriteByte(' ')
-        }
-        phase := phaseBase + float64(i)*0.55
-        height := int((math.Sin(phase)+1.0)/2.0*float64(maxHeight-1)) + 1
-        bars.WriteString(strings.Repeat("▌", height))
-    }
+	var bars strings.Builder
+	for i := 0; i < barCount; i++ {
+		if i > 0 {
+			bars.WriteByte(' ')
+		}
+		phase := phaseBase + float64(i)*0.55
+		height := int((math.Sin(phase)+1.0)/2.0*float64(maxHeight-1)) + 1
+		bars.WriteString(strings.Repeat("▌", height))
+	}
 	barStyle := lipgloss.NewStyle().Foreground(colorGreen).Bold(true)
 	return lipgloss.NewStyle().Width(w).Align(lipgloss.Center).Render(barStyle.Render(bars.String()))
 }
