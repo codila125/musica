@@ -1,11 +1,11 @@
 package tui
 
 import (
-    "context"
-    "fmt"
-    "math"
-    "strings"
-    "time"
+	"context"
+	"fmt"
+	"math"
+	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -43,6 +43,7 @@ type Model struct {
 	progressErr   error
 	barFrame      int
 	blinkCounter  int
+	shineOffset   int
 	tabs          []string
 	activeTab     Tab
 	views         viewAdapter
@@ -65,6 +66,7 @@ var (
 	colorGreen     = lipgloss.Color("46")
 	colorCyan      = lipgloss.Color("51")
 	colorAmber     = lipgloss.Color("214")
+	colorBrown     = lipgloss.Color("136")
 )
 
 // Styles
@@ -141,9 +143,9 @@ func (m Model) Init() tea.Cmd {
 }
 
 func uiTickCmd() tea.Cmd {
-    return tea.Tick(120*time.Millisecond, func(t time.Time) tea.Msg {
-        return uiTickMsg(t)
-    })
+	return tea.Tick(80*time.Millisecond, func(t time.Time) tea.Msg {
+		return uiTickMsg(t)
+	})
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -158,10 +160,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case uiTickMsg:
 		m.blinkCounter++
-		if m.blinkCounter%6 == 0 {
+		if m.blinkCounter%12 == 0 {
 			m.blinkOn = !m.blinkOn
 		}
 		m.barFrame = (m.barFrame + 1) % 64
+		m.shineOffset = (m.shineOffset + 1) % 120
 		pos, posErr := m.playback.Position()
 		dur, durErr := m.playback.Duration()
 		m.progressErr = nil
@@ -322,12 +325,31 @@ func (m Model) View() string {
 }
 
 func (m Model) renderHeader(w int) string {
-	title := headerStyle.Render("╔══════════════════════════════════════════╗")
-	subtitle := headerStyle.Render("║      MUSICA  ::  RETRO CASSETTE DECK     ║")
-	bottom := headerStyle.Render("╚══════════════════════════════════════════╝")
-	grille := footerStyle.Render("┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆")
+	innerW := w
+	if innerW < 38 {
+		innerW = 38
+	}
+	label := " MUSICA  ::  RETRO CASSETTE DECK "
+	borderW := innerW - 4
+	if borderW < len(label) {
+		borderW = len(label)
+	}
+	leftPad := (borderW - len(label)) / 2
+	rightPad := borderW - len(label) - leftPad
 
-	header := lipgloss.JoinVertical(lipgloss.Center, title, subtitle, bottom, grille)
+	top := "╔" + strings.Repeat("═", borderW) + "╗"
+	mid := "║" + strings.Repeat(" ", leftPad) + label + strings.Repeat(" ", rightPad) + "║"
+	bot := "╚" + strings.Repeat("═", borderW) + "╝"
+	grille := footerStyle.Render("┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆")
+	shine := m.renderDeckShine(w)
+
+	header := lipgloss.JoinVertical(lipgloss.Center,
+		headerStyle.Render(top),
+		headerStyle.Render(mid),
+		headerStyle.Render(bot),
+		grille,
+		shine,
+	)
 	return lipgloss.NewStyle().Width(w).Align(lipgloss.Center).Render(header)
 }
 
@@ -366,6 +388,29 @@ func (m Model) renderTabBar(w int) string {
 	return lipgloss.NewStyle().Width(w).Align(lipgloss.Center).Padding(0, 0, 1, 0).Render(tabBar)
 }
 
+func (m Model) renderDeckShine(w int) string {
+	if w <= 0 {
+		return ""
+	}
+	width := w - 6
+	if width < 12 {
+		width = w
+	}
+	base := []rune(strings.Repeat("─", width))
+	pos := m.shineOffset % (width + 10)
+	var b strings.Builder
+	for i := 0; i < width; i++ {
+		ch := base[i]
+		d := i - pos
+		if d >= -2 && d <= 2 {
+			ch = '═'
+		}
+		b.WriteRune(ch)
+	}
+	shineStyle := lipgloss.NewStyle().Foreground(colorAmber)
+	return lipgloss.NewStyle().Width(w).Align(lipgloss.Center).Render(shineStyle.Render(b.String()))
+}
+
 func (m Model) renderContent(w, childW, childH int) string {
 	content := m.views.View(m.activeTab)
 
@@ -378,7 +423,7 @@ func (m Model) renderContent(w, childW, childH int) string {
 
 func (m Model) childViewportDims(totalW, totalH int) (int, int) {
 	childW := totalW - mainFrameStyle.GetHorizontalFrameSize() - 2
-	childH := totalH - mainFrameStyle.GetVerticalFrameSize() - 10
+	childH := totalH - mainFrameStyle.GetVerticalFrameSize() - 13
 	if childW < 20 {
 		childW = 20
 	}
@@ -484,6 +529,7 @@ func (m Model) renderFooter(w int) string {
 			lines = append(lines, bars)
 		}
 	}
+	lines = append(lines, m.renderTapeWindow(w))
 	if statusLine != "" {
 		lines = append(lines, statusLine)
 	}
@@ -578,8 +624,35 @@ func (m Model) renderSoundBars(w int) string {
         height := int((math.Sin(phase)+1.0)/2.0*float64(maxHeight-1)) + 1
         bars.WriteString(strings.Repeat("▌", height))
     }
-    barStyle := lipgloss.NewStyle().Foreground(colorGreen).Bold(true)
-    return lipgloss.NewStyle().Width(w).Align(lipgloss.Center).Render(barStyle.Render(bars.String()))
+	barStyle := lipgloss.NewStyle().Foreground(colorGreen).Bold(true)
+	return lipgloss.NewStyle().Width(w).Align(lipgloss.Center).Render(barStyle.Render(bars.String()))
+}
+
+func (m Model) renderTapeWindow(w int) string {
+	if w <= 0 {
+		return ""
+	}
+	inner := w - 12
+	if inner < 20 {
+		inner = w
+	}
+	leftReel := "◐"
+	rightReel := "◑"
+	if m.playback.State() == models.StatePlaying {
+		if m.blinkOn {
+			leftReel = "◓"
+			rightReel = "◒"
+		}
+	}
+	spoolLen := inner/2 - 4
+	if spoolLen < 2 {
+		spoolLen = 2
+	}
+	spool := strings.Repeat("━", spoolLen)
+	window := fmt.Sprintf("%s%s%s%s", leftReel, spool, rightReel, spool)
+	windowStyle := lipgloss.NewStyle().Foreground(colorBrown)
+	frame := lipgloss.NewStyle().Width(w).Align(lipgloss.Center).Render(windowStyle.Render(window))
+	return frame
 }
 
 func (m Model) switchServerCmd(index int) tea.Cmd {
