@@ -80,6 +80,10 @@ func (c *PlaybackController) Replay() error {
 	return c.player.Play(*cur)
 }
 
+func (c *PlaybackController) Next() error {
+	return c.player.Next()
+}
+
 func (c *PlaybackController) CurrentTrack() *models.Track {
 	return c.player.CurrentTrack()
 }
