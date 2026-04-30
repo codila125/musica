@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
 
 	"github.com/codila125/musica/internal/api"
 	"github.com/codila125/musica/internal/models"
@@ -303,13 +304,13 @@ func truncateStr(s string, maxLen int) string {
 	if maxLen <= 0 {
 		return ""
 	}
-	if len(s) <= maxLen {
+	if runewidth.StringWidth(s) <= maxLen {
 		return s
 	}
 	if maxLen <= 3 {
-		return s[:maxLen]
+		return runewidth.Truncate(s, maxLen, "")
 	}
-	return s[:maxLen-3] + "..."
+	return runewidth.Truncate(s, maxLen, "...")
 }
 
 func formatDuration(seconds int) string {
@@ -319,8 +320,8 @@ func formatDuration(seconds int) string {
 }
 
 func padRight(s string, w int) string {
-	if len(s) >= w {
+	if runewidth.StringWidth(s) >= w {
 		return s
 	}
-	return s + strings.Repeat(" ", w-len(s))
+	return s + strings.Repeat(" ", w-runewidth.StringWidth(s))
 }
