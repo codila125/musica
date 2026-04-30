@@ -329,26 +329,28 @@ func (m Model) renderHeader(w int) string {
 	if innerW < 38 {
 		innerW = 38
 	}
-	label := " MUSICA  ::  RETRO CASSETTE DECK "
-	borderW := innerW - 4
-	if borderW < len(label) {
-		borderW = len(label)
+	contentW := innerW - 2
+	label := trimLabel(" MUSICA  ::  RETRO CASSETTE DECK ", contentW)
+	led := "◉"
+	if !m.blinkOn {
+		led = "◌"
 	}
-	leftPad := (borderW - len(label)) / 2
-	rightPad := borderW - len(label) - leftPad
+	labelLine := padCenter(""+led+label+led, contentW)
+	shineLine := padCenter(m.renderDeckShine(contentW), contentW)
+	controlLine := padCenter("[PLAY] [PAUSE] [REW] [FF]", contentW)
 
-	top := "╔" + strings.Repeat("═", borderW) + "╗"
-	mid := "║" + strings.Repeat(" ", leftPad) + label + strings.Repeat(" ", rightPad) + "║"
-	bot := "╚" + strings.Repeat("═", borderW) + "╝"
-	grille := footerStyle.Render("┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆")
-	shine := m.renderDeckShine(w)
+	top := "╔" + strings.Repeat("═", contentW) + "╗"
+	mid := "║" + labelLine + "║"
+	ctl := "║" + controlLine + "║"
+	shn := "║" + shineLine + "║"
+	bot := "╚" + strings.Repeat("═", contentW) + "╝"
 
 	header := lipgloss.JoinVertical(lipgloss.Center,
 		headerStyle.Render(top),
 		headerStyle.Render(mid),
+		footerStyle.Render(ctl),
+		headerStyle.Render(shn),
 		headerStyle.Render(bot),
-		grille,
-		shine,
 	)
 	return lipgloss.NewStyle().Width(w).Align(lipgloss.Center).Render(header)
 }
@@ -392,14 +394,10 @@ func (m Model) renderDeckShine(w int) string {
 	if w <= 0 {
 		return ""
 	}
-	width := w - 6
-	if width < 12 {
-		width = w
-	}
-	base := []rune(strings.Repeat("─", width))
-	pos := m.shineOffset % (width + 10)
+	base := []rune(strings.Repeat("─", w))
+	pos := m.shineOffset % (w + 10)
 	var b strings.Builder
-	for i := 0; i < width; i++ {
+	for i := 0; i < w; i++ {
 		ch := base[i]
 		d := i - pos
 		if d >= -2 && d <= 2 {
@@ -407,8 +405,7 @@ func (m Model) renderDeckShine(w int) string {
 		}
 		b.WriteRune(ch)
 	}
-	shineStyle := lipgloss.NewStyle().Foreground(colorAmber)
-	return lipgloss.NewStyle().Width(w).Align(lipgloss.Center).Render(shineStyle.Render(b.String()))
+	return lipgloss.NewStyle().Foreground(colorAmber).Render(b.String())
 }
 
 func (m Model) renderContent(w, childW, childH int) string {
@@ -423,7 +420,7 @@ func (m Model) renderContent(w, childW, childH int) string {
 
 func (m Model) childViewportDims(totalW, totalH int) (int, int) {
 	childW := totalW - mainFrameStyle.GetHorizontalFrameSize() - 2
-	childH := totalH - mainFrameStyle.GetVerticalFrameSize() - 13
+	childH := totalH - mainFrameStyle.GetVerticalFrameSize() - 12
 	if childW < 20 {
 		childW = 20
 	}
@@ -678,4 +675,27 @@ func (m Model) switchServerCmd(index int) tea.Cmd {
 		}
 		return switchServerMsg{traceID: traceID, started: start, client: res.Client, index: res.Index, err: res.Err}
 	}
+}
+
+func trimLabel(label string, max int) string {
+	if max <= 0 {
+		return ""
+	}
+	if len(label) <= max {
+		return label
+	}
+	if max <= 3 {
+		return label[:max]
+	}
+	return label[:max-3] + "..."
+}
+
+func padCenter(s string, w int) string {
+	if len(s) >= w {
+		return s
+	}
+	pad := w - len(s)
+	left := pad / 2
+	right := pad - left
+	return strings.Repeat(" ", left) + s + strings.Repeat(" ", right)
 }
