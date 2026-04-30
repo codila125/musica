@@ -51,6 +51,8 @@ func (m QueueModel) Update(msg tea.Msg) (QueueModel, tea.Cmd) {
 			if m.cursor < len(queue) {
 				_ = m.playback.ToggleQueueTrack(queue, m.cursor)
 			}
+		case "r":
+			_ = m.playback.Replay()
 		}
 	}
 

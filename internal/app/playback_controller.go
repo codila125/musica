@@ -64,6 +64,22 @@ func (c *PlaybackController) Stop() error {
 	return c.player.Stop()
 }
 
+func (c *PlaybackController) Replay() error {
+	queue := c.player.Queue()
+	if len(queue) > 0 {
+		idx := c.player.CurrentIndex()
+		if idx >= 0 && idx < len(queue) {
+			return c.player.PlayQueue(queue, idx)
+		}
+	}
+
+	cur := c.player.CurrentTrack()
+	if cur == nil {
+		return nil
+	}
+	return c.player.Play(*cur)
+}
+
 func (c *PlaybackController) CurrentTrack() *models.Track {
 	return c.player.CurrentTrack()
 }

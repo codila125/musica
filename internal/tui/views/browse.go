@@ -70,6 +70,8 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 			if len(m.tracks) > 0 {
 				m.err = m.playback.ToggleTrack(m.tracks[m.cursor])
 			}
+		case "r":
+			m.err = m.playback.Replay()
 		case "ctrl+r":
 			return m.beginLoadRecentTracks()
 		case "q":

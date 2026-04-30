@@ -10,6 +10,7 @@ type PlaybackService interface {
 	PlayTrack(track models.Track) error
 	QueueTrack(track models.Track) error
 	Stop() error
+	Replay() error
 	CurrentTrack() *models.Track
 	State() models.PlayerState
 	Queue() []models.Track

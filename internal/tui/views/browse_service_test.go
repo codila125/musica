@@ -74,6 +74,16 @@ func (f *fakePlayerService) PlayTrack(track models.Track) error { return f.Play(
 func (f *fakePlayerService) QueueTrack(track models.Track) error {
 	return f.AppendToQueue(track)
 }
+func (f *fakePlayerService) Replay() error {
+	if len(f.queue) == 0 {
+		return nil
+	}
+	if f.current < 0 || f.current >= len(f.queue) {
+		return nil
+	}
+	track := f.queue[f.current]
+	return f.Play(track)
+}
 
 func (f *fakePlayerService) Play(track models.Track) error {
 	f.queue = []models.Track{track}

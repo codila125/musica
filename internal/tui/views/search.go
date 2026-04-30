@@ -133,6 +133,14 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 			} else if m.state == SearchResults {
 				return m.handlePlay(), nil
 			}
+		case "r":
+			if m.state == SearchResults {
+				if err := m.playback.Replay(); err != nil {
+					m.err = fmt.Errorf("replay: %w", err)
+				} else {
+					m.err = nil
+				}
+			}
 		case "p":
 			if m.state == SearchResults {
 				if m.resultType == 0 && len(m.results.Tracks) > 0 && m.cursor < len(m.results.Tracks) {

@@ -459,6 +459,7 @@ func (m Model) renderHelp(w, h int) string {
 		footerStyle.Render("  [shift+tab]  Previous tab"),
 		footerStyle.Render("  [ctrl+s]     Switch server"),
 		footerStyle.Render("  [ctrl+r]     Refresh (Browse tab)"),
+		footerStyle.Render("  [r]          Replay current track"),
 		footerStyle.Render("  [ctrl+q]     Quit application"),
 		"",
 		helpTitleStyle.Render(" ◎ TAB SPECIFIC "),
