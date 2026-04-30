@@ -180,7 +180,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, key.NewBinding(key.WithKeys("shift+tab"))):
 			m.activeTab = (m.activeTab - 1 + Tab(len(m.tabs))) % Tab(len(m.tabs))
 			return m, nil
-		case key.Matches(msg, key.NewBinding(key.WithKeys("h"))):
+		case key.Matches(msg, key.NewBinding(key.WithKeys("ctrl+h"))):
 			m.helpVisible = !m.helpVisible
 			return m, nil
 		case key.Matches(msg, key.NewBinding(key.WithKeys("ctrl+c", "ctrl+q"))):
@@ -421,7 +421,7 @@ func (m Model) renderFooter(w int) string {
 	}
 
 	// Key hints
-	hints := footerStyle.Render("[h]help [tab]switch [ctrl+s]server [ctrl+q]quit")
+	hints := footerStyle.Render("[ctrl+h]help [tab]switch [ctrl+s]server [ctrl+q]quit")
 
 	// Status line
 	statusLine := ""
@@ -454,7 +454,7 @@ func (m Model) renderHelp(w, h int) string {
 	lines := []string{
 		helpTitleStyle.Render(" ◎ KEYBOARD SHORTCUTS "),
 		"",
-		footerStyle.Render("  [h]          Toggle this help"),
+		footerStyle.Render("  [ctrl+h]     Toggle this help"),
 		footerStyle.Render("  [tab]        Switch between tabs"),
 		footerStyle.Render("  [shift+tab]  Previous tab"),
 		footerStyle.Render("  [ctrl+s]     Switch server"),
@@ -497,7 +497,7 @@ func (m Model) renderHelp(w, h int) string {
 		)
 	}
 
-	lines = append(lines, "", footerStyle.Render("  Press [h] to close"))
+	lines = append(lines, "", footerStyle.Render("  Press [ctrl+h] to close"))
 
 	return helpBox.Render(strings.Join(lines, "\n"))
 }
