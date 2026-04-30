@@ -144,11 +144,9 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 		case "n":
 			if m.state == SearchResults {
 				if len(m.results.Tracks) > 0 {
-					if len(m.playback.Queue()) == 0 {
-						if err := m.playback.ToggleQueueTrack(m.results.Tracks, m.cursor); err != nil {
-							m.err = fmt.Errorf("next: %w", err)
-							break
-						}
+					if err := m.playback.ToggleQueueTrack(m.results.Tracks, m.cursor); err != nil {
+						m.err = fmt.Errorf("next: %w", err)
+						break
 					}
 					if err := m.playback.Next(); err != nil {
 						m.err = fmt.Errorf("next: %w", err)
@@ -160,14 +158,7 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 		case "p":
 			if m.state == SearchResults {
 				if m.resultType == 0 && len(m.results.Tracks) > 0 && m.cursor < len(m.results.Tracks) {
-					selected := m.results.Tracks[m.cursor]
-					if len(m.playback.Queue()) == 0 {
-						if err := m.playback.ToggleQueueTrack(m.results.Tracks, m.cursor); err != nil {
-							m.err = fmt.Errorf("play: %w", err)
-						} else {
-							m.err = nil
-						}
-					} else if err := m.playback.ToggleTrack(selected); err != nil {
+					if err := m.playback.ToggleQueueTrack(m.results.Tracks, m.cursor); err != nil {
 						m.err = fmt.Errorf("play: %w", err)
 					} else {
 						m.err = nil
@@ -359,12 +350,7 @@ func (m SearchModel) handlePlay() SearchModel {
 				m.err = fmt.Errorf("track has empty stream URL")
 				return m
 			}
-			if len(m.playback.Queue()) == 0 {
-				if err := m.playback.ToggleQueueTrack(m.results.Tracks, m.cursor); err != nil {
-					m.err = fmt.Errorf("play: %w", err)
-					return m
-				}
-			} else if err := m.playback.PlayTrack(track); err != nil {
+			if err := m.playback.ToggleQueueTrack(m.results.Tracks, m.cursor); err != nil {
 				m.err = fmt.Errorf("play: %w", err)
 				return m
 			}

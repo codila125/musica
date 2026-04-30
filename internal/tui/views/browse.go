@@ -68,17 +68,11 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 			}
 		case "enter", "p":
 			if len(m.tracks) > 0 {
-				if len(m.playback.Queue()) == 0 {
-					m.err = m.playback.ToggleQueueTrack(m.tracks, m.cursor)
-				} else {
-					m.err = m.playback.ToggleTrack(m.tracks[m.cursor])
-				}
+				m.err = m.playback.ToggleQueueTrack(m.tracks, m.cursor)
 			}
 		case "n":
 			if len(m.tracks) > 0 {
-				if len(m.playback.Queue()) == 0 {
-					m.err = m.playback.ToggleQueueTrack(m.tracks, m.cursor)
-				}
+				m.err = m.playback.ToggleQueueTrack(m.tracks, m.cursor)
 				if m.err == nil {
 					m.err = m.playback.Next()
 				}

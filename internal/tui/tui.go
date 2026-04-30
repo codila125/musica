@@ -1,10 +1,11 @@
 package tui
 
 import (
-	"context"
-	"fmt"
-	"strings"
-	"time"
+    "context"
+    "fmt"
+    "math"
+    "strings"
+    "time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -40,6 +41,8 @@ type Model struct {
 	duration      int
 	positionAt    time.Time
 	progressErr   error
+	barFrame      int
+	blinkCounter  int
 	tabs          []string
 	activeTab     Tab
 	views         viewAdapter
@@ -138,9 +141,9 @@ func (m Model) Init() tea.Cmd {
 }
 
 func uiTickCmd() tea.Cmd {
-	return tea.Tick(500*time.Millisecond, func(t time.Time) tea.Msg {
-		return uiTickMsg(t)
-	})
+    return tea.Tick(120*time.Millisecond, func(t time.Time) tea.Msg {
+        return uiTickMsg(t)
+    })
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -154,7 +157,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case uiTickMsg:
-		m.blinkOn = !m.blinkOn
+		m.blinkCounter++
+		if m.blinkCounter%6 == 0 {
+			m.blinkOn = !m.blinkOn
+		}
+		m.barFrame = (m.barFrame + 1) % 8
 		pos, posErr := m.playback.Position()
 		dur, durErr := m.playback.Duration()
 		m.progressErr = nil
@@ -469,10 +476,17 @@ func (m Model) renderFooter(w int) string {
 	col3 := lipgloss.NewStyle().Width(w / 3).Align(lipgloss.Right).Render(hints)
 	infoLine := lipgloss.JoinHorizontal(lipgloss.Top, col1, col2, col3)
 
-	if statusLine != "" {
-		return lipgloss.JoinVertical(lipgloss.Left, line, infoLine, statusLine)
+	lines := []string{line, infoLine}
+	if track := m.playback.CurrentTrack(); track != nil {
+		if m.playback.State() == models.StatePlaying {
+			bars := m.renderSoundBars(w)
+			lines = append(lines, bars)
+		}
 	}
-	return lipgloss.JoinVertical(lipgloss.Left, line, infoLine)
+	if statusLine != "" {
+		lines = append(lines, statusLine)
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
 
 func (m Model) renderHelp(w, h int) string {
@@ -544,6 +558,25 @@ func formatDuration(seconds int) string {
 	m := seconds / 60
 	s := seconds % 60
 	return fmt.Sprintf("%d:%02d", m, s)
+}
+
+func (m Model) renderSoundBars(w int) string {
+    const (
+        barCount  = 12
+        maxHeight = 7
+    )
+    phaseBase := float64(m.barFrame) * 0.35
+    var bars strings.Builder
+    for i := 0; i < barCount; i++ {
+        if i > 0 {
+            bars.WriteByte(' ')
+        }
+        phase := phaseBase + float64(i)*0.55
+        height := int((math.Sin(phase)+1.0)/2.0*float64(maxHeight-1)) + 1
+        bars.WriteString(strings.Repeat("▌", height))
+    }
+    barStyle := lipgloss.NewStyle().Foreground(colorGreen).Bold(true)
+    return lipgloss.NewStyle().Width(w).Align(lipgloss.Center).Render(barStyle.Render(bars.String()))
 }
 
 func (m Model) switchServerCmd(index int) tea.Cmd {
