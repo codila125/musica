@@ -46,7 +46,7 @@ func listBoxStyle(w, h int) lipgloss.Style {
 }
 
 func listDivider(innerW int) string {
-	return retroCassetteStyle.Render(strings.Repeat("─", innerW))
+	return retroCassetteStyle.Render(strings.Repeat("═", innerW))
 }
 
 func calcVisibleRows(h, reserved int) int {

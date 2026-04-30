@@ -56,10 +56,10 @@ type Model struct {
 
 // Colors
 var (
-	colorPurple    = lipgloss.Color("93")
+	colorPurple    = lipgloss.Color("130")
 	colorLightText = lipgloss.Color("230")
 	colorDimText   = lipgloss.Color("244")
-	colorYellow    = lipgloss.Color("226")
+	colorYellow    = lipgloss.Color("220")
 	colorRed       = lipgloss.Color("196")
 	colorRedDim    = lipgloss.Color("88")
 	colorGreen     = lipgloss.Color("46")
@@ -84,7 +84,7 @@ var (
 	tabButtonActiveStyle = lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
 				BorderForeground(colorRed).
-				Foreground(colorLightText).
+				Foreground(colorAmber).
 				Align(lipgloss.Center).
 				Padding(0, 1).
 				Bold(true)
@@ -161,7 +161,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.blinkCounter%6 == 0 {
 			m.blinkOn = !m.blinkOn
 		}
-		m.barFrame = (m.barFrame + 1) % 8
+		m.barFrame = (m.barFrame + 1) % 64
 		pos, posErr := m.playback.Position()
 		dur, durErr := m.playback.Duration()
 		m.progressErr = nil
@@ -325,8 +325,9 @@ func (m Model) renderHeader(w int) string {
 	title := headerStyle.Render("╔══════════════════════════════════════════╗")
 	subtitle := headerStyle.Render("║      MUSICA  ::  RETRO CASSETTE DECK     ║")
 	bottom := headerStyle.Render("╚══════════════════════════════════════════╝")
+	grille := footerStyle.Render("┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆ ┆")
 
-	header := lipgloss.JoinVertical(lipgloss.Center, title, subtitle, bottom)
+	header := lipgloss.JoinVertical(lipgloss.Center, title, subtitle, bottom, grille)
 	return lipgloss.NewStyle().Width(w).Align(lipgloss.Center).Render(header)
 }
 
@@ -563,11 +564,11 @@ func formatDuration(seconds int) string {
 }
 
 func (m Model) renderSoundBars(w int) string {
-    const (
-        barCount  = 12
-        maxHeight = 7
-    )
-    phaseBase := float64(m.barFrame) * 0.35
+	const (
+		barCount  = 12
+		maxHeight = 7
+	)
+	phaseBase := float64(m.barFrame) * 0.18
     var bars strings.Builder
     for i := 0; i < barCount; i++ {
         if i > 0 {

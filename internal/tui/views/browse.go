@@ -226,6 +226,7 @@ func (m BrowseModel) View() string {
 	// Cassette animation indicator (compact, inline)
 	cassetteStatus := m.renderCompactCassette()
 	lines = append(lines, cassetteStatus)
+	lines = append(lines, listDivider(innerW))
 
 	// Column headers
 	cols := computeTrackColumns(innerW)
