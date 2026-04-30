@@ -53,6 +53,8 @@ func (m QueueModel) Update(msg tea.Msg) (QueueModel, tea.Cmd) {
 			}
 		case "n":
 			_ = m.playback.Next()
+		case "m":
+			_ = m.playback.Previous()
 		case "r":
 			_ = m.playback.Replay()
 		}

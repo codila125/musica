@@ -78,6 +78,8 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 					m.err = m.playback.Next()
 				}
 			}
+		case "m":
+			m.err = m.playback.Previous()
 		case "r":
 			m.err = m.playback.Replay()
 		case "ctrl+r":

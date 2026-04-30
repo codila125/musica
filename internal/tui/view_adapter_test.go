@@ -51,6 +51,7 @@ func (a adapterFakePlayback) QueueTrack(track models.Track) error { return nil }
 func (a adapterFakePlayback) Stop() error                         { return nil }
 func (a adapterFakePlayback) Replay() error                       { return nil }
 func (a adapterFakePlayback) Next() error                         { return nil }
+func (a adapterFakePlayback) Previous() error                     { return nil }
 func (a adapterFakePlayback) CurrentTrack() *models.Track         { return nil }
 func (a adapterFakePlayback) State() models.PlayerState           { return models.StateStopped }
 func (a adapterFakePlayback) Queue() []models.Track               { return nil }

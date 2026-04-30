@@ -130,6 +130,17 @@ func (f *fakePlayerService) Next() error {
 	f.state = models.StatePlaying
 	return nil
 }
+func (f *fakePlayerService) Previous() error {
+	if len(f.queue) == 0 {
+		return nil
+	}
+	if f.current <= 0 {
+		return nil
+	}
+	f.current--
+	f.state = models.StatePlaying
+	return nil
+}
 func (f *fakePlayerService) CurrentTrack() *models.Track {
 	if f.current < 0 || f.current >= len(f.queue) {
 		return nil

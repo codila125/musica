@@ -84,6 +84,10 @@ func (c *PlaybackController) Next() error {
 	return c.player.Next()
 }
 
+func (c *PlaybackController) Previous() error {
+	return c.player.Previous()
+}
+
 func (c *PlaybackController) CurrentTrack() *models.Track {
 	return c.player.CurrentTrack()
 }

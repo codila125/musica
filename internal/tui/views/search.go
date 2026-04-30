@@ -156,6 +156,14 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 					}
 				}
 			}
+		case "m":
+			if m.state == SearchResults {
+				if err := m.playback.Previous(); err != nil {
+					m.err = fmt.Errorf("previous: %w", err)
+				} else {
+					m.err = nil
+				}
+			}
 		case "p":
 			if m.state == SearchResults {
 				if m.resultType == 0 && len(m.results.Tracks) > 0 && m.cursor < len(m.results.Tracks) {
