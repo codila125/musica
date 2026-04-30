@@ -127,8 +127,12 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 			m.err = msg.err
 			return m, nil
 		}
-		m.totalKnown = msg.count >= 0
-		if m.totalKnown {
+		countKnown := msg.count >= 0
+		if msg.count == 0 && len(msg.tracks) > 0 {
+			countKnown = false
+		}
+		m.totalKnown = countKnown
+		if countKnown {
 			m.total = msg.count
 		} else {
 			m.total = len(msg.tracks)
