@@ -140,6 +140,8 @@ func (f *fakePlayerService) CurrentTrack() *models.Track {
 func (f *fakePlayerService) State() models.PlayerState { return f.state }
 func (f *fakePlayerService) Queue() []models.Track     { return append([]models.Track(nil), f.queue...) }
 func (f *fakePlayerService) CurrentIndex() int         { return f.current }
+func (f *fakePlayerService) Position() (int, error)    { return 0, nil }
+func (f *fakePlayerService) Duration() (int, error)    { return 0, nil }
 func (f *fakePlayerService) AppendToQueue(track models.Track) error {
 	if len(f.queue) > 0 && f.current >= 0 && f.current < len(f.queue) {
 		insertIdx := f.current + 1

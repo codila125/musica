@@ -99,3 +99,11 @@ func (c *PlaybackController) Queue() []models.Track {
 func (c *PlaybackController) CurrentIndex() int {
 	return c.player.CurrentIndex()
 }
+
+func (c *PlaybackController) Position() (int, error) {
+	return c.player.Position()
+}
+
+func (c *PlaybackController) Duration() (int, error) {
+	return c.player.Duration()
+}

@@ -16,4 +16,6 @@ type PlaybackService interface {
 	State() models.PlayerState
 	Queue() []models.Track
 	CurrentIndex() int
+	Position() (int, error)
+	Duration() (int, error)
 }

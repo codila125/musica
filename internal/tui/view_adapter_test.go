@@ -55,6 +55,8 @@ func (a adapterFakePlayback) CurrentTrack() *models.Track         { return nil }
 func (a adapterFakePlayback) State() models.PlayerState           { return models.StateStopped }
 func (a adapterFakePlayback) Queue() []models.Track               { return nil }
 func (a adapterFakePlayback) CurrentIndex() int                   { return 0 }
+func (a adapterFakePlayback) Position() (int, error)              { return 0, nil }
+func (a adapterFakePlayback) Duration() (int, error)              { return 0, nil }
 
 func TestViewAdapterLifecycle(t *testing.T) {
 	v := newViewAdapter(adapterFakeClient{}, adapterFakePlayback{})

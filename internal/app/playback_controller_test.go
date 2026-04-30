@@ -63,3 +63,19 @@ func TestReplayRestartsCurrentTrack(t *testing.T) {
 		t.Fatalf("expected playing after replay")
 	}
 }
+
+func TestPositionAndDuration(t *testing.T) {
+	pl, err := player.New()
+	if err != nil {
+		t.Fatalf("new player: %v", err)
+	}
+	defer pl.Close()
+
+	c := NewPlaybackController(pl)
+	if _, err := c.Position(); err != nil {
+		t.Fatalf("position: %v", err)
+	}
+	if _, err := c.Duration(); err != nil {
+		t.Fatalf("duration: %v", err)
+	}
+}

@@ -36,6 +36,10 @@ type Model struct {
 	servers       []config.ServerConfig
 	currentServer int
 	status        string
+	position      int
+	duration      int
+	positionAt    time.Time
+	progressErr   error
 	tabs          []string
 	activeTab     Tab
 	views         viewAdapter
@@ -151,6 +155,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case uiTickMsg:
 		m.blinkOn = !m.blinkOn
+		pos, posErr := m.playback.Position()
+		dur, durErr := m.playback.Duration()
+		m.progressErr = nil
+		if posErr != nil {
+			m.progressErr = posErr
+		} else {
+			m.position = pos
+			m.positionAt = time.Now()
+		}
+		if durErr != nil {
+			m.progressErr = durErr
+		} else {
+			m.duration = dur
+		}
 		return m, uiTickCmd()
 
 	case tea.KeyMsg:
@@ -417,7 +435,24 @@ func (m Model) renderFooter(w int) string {
 		case models.StatePaused:
 			stateIcon = "❚❚"
 		}
-		nowPlaying = nowPlayingStyle.Render(fmt.Sprintf("%s %s - %s", stateIcon, track.Title, track.Artist))
+		progress := ""
+		if m.playback.State() == models.StatePlaying || m.playback.State() == models.StatePaused {
+			if m.progressErr == nil {
+				displayPos := m.position
+				if m.playback.State() == models.StatePlaying && !m.positionAt.IsZero() {
+					displayPos += int(time.Since(m.positionAt).Seconds())
+				}
+				if m.duration > 0 && displayPos > m.duration {
+					displayPos = m.duration
+				}
+				if m.duration > 0 {
+					progress = fmt.Sprintf(" %s/%s", formatDuration(displayPos), formatDuration(m.duration))
+				} else {
+					progress = fmt.Sprintf(" %s", formatDuration(displayPos))
+				}
+			}
+		}
+		nowPlaying = nowPlayingStyle.Render(fmt.Sprintf("%s %s - %s%s", stateIcon, track.Title, track.Artist, progress))
 	}
 
 	// Key hints
@@ -500,6 +535,15 @@ func (m Model) renderHelp(w, h int) string {
 	lines = append(lines, "", footerStyle.Render("  Press [ctrl+h] to close"))
 
 	return helpBox.Render(strings.Join(lines, "\n"))
+}
+
+func formatDuration(seconds int) string {
+	if seconds < 0 {
+		seconds = 0
+	}
+	m := seconds / 60
+	s := seconds % 60
+	return fmt.Sprintf("%d:%02d", m, s)
 }
 
 func (m Model) switchServerCmd(index int) tea.Cmd {
