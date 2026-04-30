@@ -522,6 +522,7 @@ func (m Model) renderHelp(w, h int) string {
 		lines = append(lines,
 			helpSectionStyle.Render("  ─── TRACK LIBRARY ───"),
 			footerStyle.Render("  [j/k] or [↓/↑]  Navigate up/down"),
+			footerStyle.Render("  [←/→]        Previous/next page"),
 			footerStyle.Render("  [p] or [enter]  Play/pause track"),
 			footerStyle.Render("  [q]            Add to queue"),
 			footerStyle.Render("  [ctrl+r]       Refresh tracks"),

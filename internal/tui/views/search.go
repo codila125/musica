@@ -467,8 +467,8 @@ func (m SearchModel) renderAlbums(w, h int) string {
 	for i := start; i < end; i++ {
 		a := m.results.Albums[i]
 		num := fmt.Sprintf("%02d", i+1)
-		name := runewidth.Truncate(a.Name, w-20, "...")
-		artist := runewidth.Truncate(a.Artist, 15, "...")
+		name := runewidth.Truncate(sanitizeDisplay(a.Name), w-20, "...")
+		artist := runewidth.Truncate(sanitizeDisplay(a.Artist), 15, "...")
 
 		var line string
 		if i == m.cursor {
@@ -506,7 +506,7 @@ func (m SearchModel) renderArtists(w, h int) string {
 	for i := start; i < end; i++ {
 		a := m.results.Artists[i]
 		num := fmt.Sprintf("%02d", i+1)
-		name := runewidth.Truncate(a.Name, w-12, "...")
+		name := runewidth.Truncate(sanitizeDisplay(a.Name), w-12, "...")
 
 		var line string
 		if i == m.cursor {

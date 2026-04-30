@@ -5,6 +5,7 @@ package views
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"testing"
 
@@ -260,5 +261,34 @@ func TestBrowseNextSeedsQueueWhenEmpty(t *testing.T) {
 	}
 	if pl.current != 1 {
 		t.Fatalf("expected current index 1, got %d", pl.current)
+	}
+}
+
+func TestBrowsePaginationSlicesTracks(t *testing.T) {
+	recent := make([]models.Track, 0, 120)
+	for i := 0; i < 120; i++ {
+		recent = append(recent, models.Track{ID: fmt.Sprintf("%d", i+1), Title: fmt.Sprintf("Song %d", i+1), StreamURL: "url"})
+	}
+	pl := &fakePlayerService{}
+	m := NewBrowseModelWithService(fakeAPIClient{recent: recent}, pl)
+
+	updated, cmd := m.beginLoadRecentTracks()
+	if cmd == nil {
+		t.Fatalf("expected load command")
+	}
+	m = updated
+
+	m2, _ := m.Update(browseTracksMsg{id: m.loadReqID, tracks: recent})
+	if len(m2.tracks) != 50 {
+		t.Fatalf("expected 50 tracks on page 1, got %d", len(m2.tracks))
+	}
+
+	m2.page = 1
+	m3, _ := m2.Update(browseTracksMsg{id: m2.loadReqID, tracks: recent})
+	if len(m3.tracks) != 50 {
+		t.Fatalf("expected 50 tracks on page 2, got %d", len(m3.tracks))
+	}
+	if m3.tracks[0].ID != "51" {
+		t.Fatalf("expected first track id 51, got %s", m3.tracks[0].ID)
 	}
 }

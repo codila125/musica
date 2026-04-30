@@ -14,11 +14,15 @@ import (
 	"github.com/codila125/musica/internal/models"
 )
 
+const browsePageSize = 50
+
 type BrowseModel struct {
 	apiClient api.Client
 	playback  PlaybackService
 
 	tracks     []models.Track
+	page       int
+	total      int
 	cursor     int
 	width      int
 	height     int
@@ -31,6 +35,7 @@ type BrowseModel struct {
 type browseTracksMsg struct {
 	id     int64
 	tracks []models.Track
+	limit  int
 	err    error
 }
 
@@ -67,6 +72,14 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 			if m.cursor < len(m.tracks)-1 {
 				m.cursor++
 			}
+		case "left":
+			if m.page > 0 {
+				m.page--
+				return m.beginLoadRecentTracks()
+			}
+		case "right":
+			m.page++
+			return m.beginLoadRecentTracks()
 		case "enter", "p":
 			if len(m.tracks) > 0 {
 				m.err = m.playback.ToggleQueueTrack(m.tracks, m.cursor)
@@ -112,8 +125,30 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 			m.err = msg.err
 			return m, nil
 		}
-		m.tracks = msg.tracks
-		m.cursor = 0
+		m.total = len(msg.tracks)
+		pageSize := browsePageSize
+		maxPage := 0
+		if m.total > 0 {
+			maxPage = (m.total - 1) / pageSize
+		}
+		if m.page > maxPage {
+			m.page = maxPage
+		}
+		start := m.page * pageSize
+		end := start + pageSize
+		if start > m.total {
+			start = m.total
+		}
+		if end > m.total {
+			end = m.total
+		}
+		m.tracks = append([]models.Track(nil), msg.tracks[start:end]...)
+		if m.cursor >= len(m.tracks) {
+			m.cursor = len(m.tracks) - 1
+		}
+		if m.cursor < 0 {
+			m.cursor = 0
+		}
 		m.err = nil
 	}
 
@@ -222,7 +257,11 @@ func (m BrowseModel) View() string {
 	}
 
 	lines = append(lines, divider)
-	lines = append(lines, retroSubtleStyle.Align(lipgloss.Center).Width(innerW).Render(fmt.Sprintf("Track %d of %d", m.cursor+1, len(m.tracks))))
+	pageLabel := ""
+	if m.total > 0 {
+		pageLabel = fmt.Sprintf("  Page %d of %d", m.page+1, (m.total-1)/browsePageSize+1)
+	}
+	lines = append(lines, retroSubtleStyle.Align(lipgloss.Center).Width(innerW).Render(fmt.Sprintf("Track %d of %d (Total %d)%s", m.cursor+1, len(m.tracks), m.total, pageLabel)))
 
 	content := strings.Join(lines, "\n")
 	return boxStyle.Render(content)
@@ -289,15 +328,17 @@ func (m BrowseModel) loadRecentTracksCmd(id int64) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		tracks, err := m.apiClient.GetRecentTracks(ctx, 50)
-		return browseTracksMsg{id: id, tracks: tracks, err: err}
+		limit := (m.page + 1) * browsePageSize
+		tracks, err := m.apiClient.GetRecentTracks(ctx, limit)
+		return browseTracksMsg{id: id, tracks: tracks, limit: limit, err: err}
 	}
 }
 
 func (m BrowseModel) loadRecentTracksCmdWithContext(id int64, ctx context.Context) tea.Cmd {
 	return func() tea.Msg {
-		tracks, err := m.apiClient.GetRecentTracks(ctx, 50)
-		return browseTracksMsg{id: id, tracks: tracks, err: err}
+		limit := (m.page + 1) * browsePageSize
+		tracks, err := m.apiClient.GetRecentTracks(ctx, limit)
+		return browseTracksMsg{id: id, tracks: tracks, limit: limit, err: err}
 	}
 }
 
@@ -306,6 +347,7 @@ func truncateStr(s string, maxLen int) string {
 	if maxLen <= 0 {
 		return ""
 	}
+	s = sanitizeDisplay(s)
 	if runewidth.StringWidth(s) <= maxLen {
 		return s
 	}
@@ -322,6 +364,7 @@ func formatDuration(seconds int) string {
 }
 
 func padRight(s string, w int) string {
+	s = sanitizeDisplay(s)
 	if runewidth.StringWidth(s) >= w {
 		return s
 	}
