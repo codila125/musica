@@ -141,7 +141,14 @@ func (f *fakePlayerService) State() models.PlayerState { return f.state }
 func (f *fakePlayerService) Queue() []models.Track     { return append([]models.Track(nil), f.queue...) }
 func (f *fakePlayerService) CurrentIndex() int         { return f.current }
 func (f *fakePlayerService) AppendToQueue(track models.Track) error {
-	f.queue = append(f.queue, track)
+	if len(f.queue) > 0 && f.current >= 0 && f.current < len(f.queue) {
+		insertIdx := f.current + 1
+		f.queue = append(f.queue, models.Track{})
+		copy(f.queue[insertIdx+1:], f.queue[insertIdx:])
+		f.queue[insertIdx] = track
+	} else {
+		f.queue = append(f.queue, track)
+	}
 	return nil
 }
 
@@ -185,6 +192,28 @@ func TestBrowseQueueShortcut(t *testing.T) {
 	}
 	if m2.err != nil {
 		t.Fatalf("unexpected error: %v", m2.err)
+	}
+}
+
+func TestBrowseQueueShortcutAddsAfterCurrent(t *testing.T) {
+	pl := &fakePlayerService{}
+	pl.queue = []models.Track{
+		{ID: "1", Title: "Song 1", StreamURL: "url1"},
+		{ID: "2", Title: "Song 2", StreamURL: "url2"},
+	}
+	pl.current = 0
+	pl.state = models.StatePlaying
+
+	m := NewBrowseModelWithService(fakeAPIClient{}, pl)
+	m.tracks = []models.Track{{ID: "3", Title: "Song 3", StreamURL: "url3"}}
+
+	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+
+	if len(pl.queue) != 3 {
+		t.Fatalf("expected queue length 3, got %d", len(pl.queue))
+	}
+	if pl.queue[1].ID != "3" {
+		t.Fatalf("expected queued track to be next, got %s", pl.queue[1].ID)
 	}
 }
 

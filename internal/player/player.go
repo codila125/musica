@@ -428,7 +428,14 @@ func (p *Player) AppendToQueue(track models.Track) error {
 		return fmt.Errorf("empty stream URL for track: %s", track.Title)
 	}
 
-	p.queue = append(p.queue, track)
+	if len(p.queue) > 0 && p.current >= 0 && p.current < len(p.queue) {
+		insertIdx := p.current + 1
+		p.queue = append(p.queue, models.Track{})
+		copy(p.queue[insertIdx+1:], p.queue[insertIdx:])
+		p.queue[insertIdx] = track
+	} else {
+		p.queue = append(p.queue, track)
+	}
 
 	if p.state == models.StateStopped {
 		p.current = len(p.queue) - 1
