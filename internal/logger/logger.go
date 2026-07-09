@@ -16,9 +16,8 @@ var (
 )
 
 type Logger struct {
-	file  *os.File
-	mu    sync.Mutex
-	level string
+	file *os.File
+	mu   sync.Mutex
 }
 
 func Get() *Logger {
@@ -46,10 +45,6 @@ func newLogger() *Logger {
 	}
 
 	return &Logger{file: f}
-}
-
-func (l *Logger) SetLevel(level string) {
-	l.level = level
 }
 
 func (l *Logger) Debug(format string, args ...interface{}) {
