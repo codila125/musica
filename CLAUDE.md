@@ -32,7 +32,7 @@ make vet            # go vet -tags testmpv ./...
 make staticcheck    # requires: go install honnef.co/go/tools/cmd/staticcheck@latest
 make govulncheck    # requires: go install golang.org/x/vuln/cmd/govulncheck@latest
 make test           # go test -tags=testmpv ./...
-make test-race      # race tests, scoped to internal/app internal/api internal/tui internal/tui/views
+make test-race      # race tests, scoped to internal/app internal/api internal/api/navidrome internal/tui internal/tui/views
 make ci             # fmt-check vet staticcheck govulncheck test test-race
 make ci-release     # ci + nocgo smoke build
 ./run.sh            # local dev helper (not part of production/Homebrew flow)
@@ -101,4 +101,4 @@ Conventions
 - Every test always builds under `-tags=testmpv`; there is no CGO-free way to exercise the real mpv path, so never gate a test behind `nocgo` or real network/hardware.
 - Cover the failure path, not just the happy path — see `coordinator_fault_test.go` / `fault_injection_test.go` as the template: inject an error at a boundary (connector, client) and assert the state machine/UI reacts correctly.
 - One assertion concept per test; prefer several small tests over one test asserting many unrelated things.
-- Race-sensitive packages (`player`, `app`, `tui`) must stay clean under `-race` (`make test-race`) — run it before calling a change in these packages done.
+- Race-sensitive packages (`player`, `app`, `tui`, `api/navidrome`) must stay clean under `-race` (`make test-race`) — run it before calling a change in these packages done.

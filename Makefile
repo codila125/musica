@@ -22,7 +22,7 @@ test:
 	go test -tags=testmpv ./...
 
 test-race:
-	go test -race -tags=testmpv ./internal/app ./internal/api ./internal/tui ./internal/tui/views
+	go test -race -tags=testmpv ./internal/app ./internal/api ./internal/api/navidrome ./internal/tui ./internal/tui/views
 
 build-nocgo:
 	go build -trimpath -tags nocgo -ldflags="-s -w" -o /tmp/musica-nocgo ./cmd

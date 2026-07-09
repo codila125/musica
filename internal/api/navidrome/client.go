@@ -9,12 +9,20 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/codila125/musica/internal/api"
 	"github.com/codila125/musica/internal/config"
 	"github.com/codila125/musica/internal/models"
 )
+
+// albumFetchConcurrency bounds how many GetTracks calls GetRecentTracks
+// issues in flight at once. The Subsonic API has no native "recent tracks"
+// endpoint, so batches of album lookups substitute for it; a small batch
+// overlaps network latency without turning one page load into a burst of
+// simultaneous requests.
+const albumFetchConcurrency = 4
 
 var _ api.Client = (*Client)(nil)
 
@@ -240,15 +248,33 @@ func (c *Client) GetRecentTracks(ctx context.Context, limit int) ([]models.Track
 		return tracks, nil
 	}
 
-	for _, a := range resp.AlbumList2.Album {
-		albumTracks, err := c.GetTracks(ctx, a.ID)
-		if err != nil {
-			continue
+	albums := resp.AlbumList2.Album
+	for start := 0; start < len(albums); start += albumFetchConcurrency {
+		end := start + albumFetchConcurrency
+		if end > len(albums) {
+			end = len(albums)
 		}
-		for _, t := range albumTracks {
-			tracks = append(tracks, t)
-			if len(tracks) >= limit {
-				return tracks, nil
+		batch := albums[start:end]
+		batchTracks := make([][]models.Track, len(batch))
+
+		var wg sync.WaitGroup
+		for i, a := range batch {
+			wg.Add(1)
+			go func(i int, albumID string) {
+				defer wg.Done()
+				if t, err := c.GetTracks(ctx, albumID); err == nil {
+					batchTracks[i] = t
+				}
+			}(i, a.ID)
+		}
+		wg.Wait()
+
+		for _, albumTracks := range batchTracks {
+			for _, t := range albumTracks {
+				tracks = append(tracks, t)
+				if len(tracks) >= limit {
+					return tracks, nil
+				}
 			}
 		}
 	}
