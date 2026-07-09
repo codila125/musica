@@ -9,7 +9,7 @@ class Musica < Formula
   depends_on "mpv"
 
   def install
-    system "go", "build", "-trimpath", "-tags", "nocgo", "-o", libexec/"musica", "./cmd"
+    system "go", "build", "-trimpath", "-tags", "nocgo", "-ldflags", "-s -w", "-o", libexec/"musica", "./cmd"
 
     env = {}
     if OS.mac?

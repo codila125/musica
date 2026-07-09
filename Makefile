@@ -25,7 +25,7 @@ test-race:
 	go test -race -tags=testmpv ./internal/app ./internal/api ./internal/tui ./internal/tui/views
 
 build-nocgo:
-	go build -trimpath -tags nocgo -o /tmp/musica-nocgo ./cmd
+	go build -trimpath -tags nocgo -ldflags="-s -w" -o /tmp/musica-nocgo ./cmd
 
 ci: fmt-check vet staticcheck govulncheck test test-race
 
