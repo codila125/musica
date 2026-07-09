@@ -8,12 +8,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func migrate(cfg *Config) {
-	if cfg.Version <= 0 {
-		cfg.Version = CurrentVersion
-	}
-}
-
 func ConfigPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -41,7 +35,6 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("parse config: %w", err)
 	}
 
-	migrate(&cfg)
 	cfg.Normalize()
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("validate config: %w", err)
@@ -55,7 +48,6 @@ func Save(cfg *Config) error {
 		return fmt.Errorf("nil config")
 	}
 
-	migrate(cfg)
 	cfg.Normalize()
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("validate config: %w", err)
