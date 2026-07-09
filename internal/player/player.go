@@ -106,20 +106,8 @@ func (p *Player) Play(track models.Track) error {
 	if track.StreamURL == "" {
 		return fmt.Errorf("empty stream URL for track: %s", track.Title)
 	}
-	logger.Get().Debug("Player loadfile: %s", logger.RedactURLSecrets(track.StreamURL))
 
-	p.queue = []models.Track{track}
-	p.current = 0
-	p.pausedPos = 0
-
-	if err := p.mpv.Command([]string{"loadfile", track.StreamURL, "replace"}); err != nil {
-		logger.Get().Error("Player loadfile failed: %v", err)
-		return fmt.Errorf("loadfile: %w", err)
-	}
-	p.mpv.SetPropertyString("pause", "no")
-
-	p.state = models.StatePlaying
-	return nil
+	return p.loadAndPlay([]models.Track{track}, 0)
 }
 
 func (p *Player) PlayQueue(tracks []models.Track, startIdx int) error {
@@ -136,14 +124,21 @@ func (p *Player) PlayQueue(tracks []models.Track, startIdx int) error {
 	if tracks[startIdx].StreamURL == "" {
 		return fmt.Errorf("empty stream URL for track: %s", tracks[startIdx].Title)
 	}
-	logger.Get().Debug("Player queue loadfile: %s", logger.RedactURLSecrets(tracks[startIdx].StreamURL))
+
+	return p.loadAndPlay(tracks, startIdx)
+}
+
+// loadAndPlay replaces the queue and starts mpv on tracks[idx]. Caller must hold p.mu.
+func (p *Player) loadAndPlay(tracks []models.Track, idx int) error {
+	track := tracks[idx]
+	logger.Get().Debug("Player loadfile: %s", logger.RedactURLSecrets(track.StreamURL))
 
 	p.queue = tracks
-	p.current = startIdx
+	p.current = idx
 	p.pausedPos = 0
 
-	if err := p.mpv.Command([]string{"loadfile", tracks[startIdx].StreamURL, "replace"}); err != nil {
-		logger.Get().Error("Player queue loadfile failed: %v", err)
+	if err := p.mpv.Command([]string{"loadfile", track.StreamURL, "replace"}); err != nil {
+		logger.Get().Error("Player loadfile failed: %v", err)
 		return fmt.Errorf("loadfile: %w", err)
 	}
 	p.mpv.SetPropertyString("pause", "no")
