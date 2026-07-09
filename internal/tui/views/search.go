@@ -368,15 +368,7 @@ func (m SearchModel) renderTracks(w, h int) string {
 	}
 
 	visibleRows := calcVisibleRows(h, 12)
-
-	start := 0
-	if m.cursor >= visibleRows {
-		start = m.cursor - visibleRows + 1
-	}
-	end := start + visibleRows
-	if end > len(m.results.Tracks) {
-		end = len(m.results.Tracks)
-	}
+	start, end := scrollWindow(m.cursor, len(m.results.Tracks), visibleRows)
 
 	cols := computeTrackColumns(w)
 
@@ -392,7 +384,7 @@ func (m SearchModel) renderTracks(w, h int) string {
 		name := truncateStr(t.Title, cols.nameW)
 		artist := truncateStr(t.Artist, cols.artistW)
 		album := truncateStr(t.Album, cols.albumW)
-		dur := formatDuration(t.Duration)
+		dur := FormatDuration(t.Duration)
 
 		var line string
 		if i == m.cursor {
@@ -433,15 +425,7 @@ func (m SearchModel) renderAlbums(w, h int) string {
 	}
 
 	visibleRows := calcVisibleRows(h, 12)
-
-	start := 0
-	if m.cursor >= visibleRows {
-		start = m.cursor - visibleRows + 1
-	}
-	end := start + visibleRows
-	if end > len(m.results.Albums) {
-		end = len(m.results.Albums)
-	}
+	start, end := scrollWindow(m.cursor, len(m.results.Albums), visibleRows)
 
 	var lines []string
 	for i := start; i < end; i++ {
@@ -472,15 +456,7 @@ func (m SearchModel) renderArtists(w, h int) string {
 	}
 
 	visibleRows := calcVisibleRows(h, 12)
-
-	start := 0
-	if m.cursor >= visibleRows {
-		start = m.cursor - visibleRows + 1
-	}
-	end := start + visibleRows
-	if end > len(m.results.Artists) {
-		end = len(m.results.Artists)
-	}
+	start, end := scrollWindow(m.cursor, len(m.results.Artists), visibleRows)
 
 	var lines []string
 	for i := start; i < end; i++ {

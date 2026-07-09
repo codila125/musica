@@ -215,15 +215,7 @@ func (m BrowseModel) View() string {
 
 	// Calculate visible rows
 	visibleRows := calcVisibleRows(h, 8)
-
-	start := 0
-	if m.cursor >= visibleRows {
-		start = m.cursor - visibleRows + 1
-	}
-	end := start + visibleRows
-	if end > len(m.tracks) {
-		end = len(m.tracks)
-	}
+	start, end := scrollWindow(m.cursor, len(m.tracks), visibleRows)
 
 	lines := []string{title, divider}
 
@@ -243,7 +235,7 @@ func (m BrowseModel) View() string {
 		name := truncateStr(t.Title, cols.nameW)
 		artist := truncateStr(t.Artist, cols.artistW)
 		album := truncateStr(t.Album, cols.albumW)
-		dur := formatDuration(t.Duration)
+		dur := FormatDuration(t.Duration)
 
 		var line string
 		if i == m.cursor {
@@ -385,7 +377,7 @@ func truncateStr(s string, maxLen int) string {
 	return runewidth.Truncate(s, maxLen, "...")
 }
 
-func formatDuration(seconds int) string {
+func FormatDuration(seconds int) string {
 	m := seconds / 60
 	s := seconds % 60
 	return fmt.Sprintf("%d:%02d", m, s)

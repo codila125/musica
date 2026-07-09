@@ -97,15 +97,7 @@ func (m QueueModel) View() string {
 
 	// Calculate visible rows
 	visibleRows := calcVisibleRows(h, 8)
-
-	start := 0
-	if m.cursor >= visibleRows {
-		start = m.cursor - visibleRows + 1
-	}
-	end := start + visibleRows
-	if end > len(queue) {
-		end = len(queue)
-	}
+	start, end := scrollWindow(m.cursor, len(queue), visibleRows)
 
 	lines := []string{title, divider}
 
@@ -121,7 +113,7 @@ func (m QueueModel) View() string {
 		name := truncateStr(t.Title, cols.nameW)
 		artist := truncateStr(t.Artist, cols.artistW)
 		album := truncateStr(t.Album, cols.albumW)
-		dur := formatDuration(t.Duration)
+		dur := FormatDuration(t.Duration)
 
 		var line string
 		if i == current {

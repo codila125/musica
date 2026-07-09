@@ -57,6 +57,21 @@ func calcVisibleRows(h, reserved int) int {
 	return rows
 }
 
+// scrollWindow returns the [start, end) slice bounds of a list that keeps
+// cursor visible within visibleRows rows, scrolling once the cursor runs
+// past the bottom of the window.
+func scrollWindow(cursor, total, visibleRows int) (start, end int) {
+	start = 0
+	if cursor >= visibleRows {
+		start = cursor - visibleRows + 1
+	}
+	end = start + visibleRows
+	if end > total {
+		end = total
+	}
+	return start, end
+}
+
 func computeTrackColumns(innerW int) trackColumns {
 	cols := trackColumns{
 		artistW:      artistColWidth,
