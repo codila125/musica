@@ -36,7 +36,6 @@ type BrowseModel struct {
 type browseTracksMsg struct {
 	id     int64
 	tracks []models.Track
-	limit  int
 	count  int
 	err    error
 }
@@ -51,7 +50,12 @@ func NewBrowseModel(client api.Client, pl PlaybackService) BrowseModel {
 }
 
 func (m BrowseModel) Init() tea.Cmd {
-	return m.loadRecentTracksCmd(m.loadReqID)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	id := m.loadReqID
+	return func() tea.Msg {
+		defer cancel()
+		return m.fetchTracksMsg(ctx, id, true)
+	}
 }
 
 func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
@@ -73,11 +77,11 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 		case "left":
 			if m.page > 0 {
 				m.page--
-				return m.beginLoadRecentTracks()
+				return m.beginLoadRecentTracks(false)
 			}
 		case "right":
 			m.page++
-			return m.beginLoadRecentTracks()
+			return m.beginLoadRecentTracks(false)
 		case "enter", "p":
 			if len(m.tracks) > 0 {
 				m.err = m.playback.ToggleQueueTrack(m.tracks, m.cursor)
@@ -94,7 +98,7 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 		case "r":
 			m.err = m.playback.Replay()
 		case "ctrl+r":
-			return m.beginLoadRecentTracks()
+			return m.beginLoadRecentTracks(true)
 		case "q":
 			if len(m.tracks) > 0 {
 				if err := m.playback.QueueTrack(m.tracks[m.cursor]); err != nil {
@@ -326,7 +330,12 @@ func (m BrowseModel) renderCompactCassette() string {
 	return cassette
 }
 
-func (m BrowseModel) beginLoadRecentTracks() (BrowseModel, tea.Cmd) {
+// beginLoadRecentTracks starts an async reload. forceCount refetches the
+// library total even if already known (used for an explicit user refresh);
+// otherwise a previously known total is reused, since it rarely changes
+// between page turns and refetching it doubles the request count for no
+// benefit.
+func (m BrowseModel) beginLoadRecentTracks(forceCount bool) (BrowseModel, tea.Cmd) {
 	if m.cancelLoad != nil {
 		m.cancelLoad()
 		m.cancelLoad = nil
@@ -338,34 +347,27 @@ func (m BrowseModel) beginLoadRecentTracks() (BrowseModel, tea.Cmd) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	m.cancelLoad = cancel
-	return m, m.loadRecentTracksCmdWithContext(m.loadReqID, ctx)
-}
-
-func (m BrowseModel) loadRecentTracksCmd(id int64) tea.Cmd {
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		limit := (m.page + 1) * browsePageSize
-		tracks, err := m.apiClient.GetRecentTracks(ctx, limit)
-		count, countErr := m.apiClient.GetRecentTracksCount(ctx)
-		if countErr != nil {
-			count = -1
-		}
-		return browseTracksMsg{id: id, tracks: tracks, limit: limit, count: count, err: err}
+	id := m.loadReqID
+	return m, func() tea.Msg {
+		return m.fetchTracksMsg(ctx, id, forceCount)
 	}
 }
 
-func (m BrowseModel) loadRecentTracksCmdWithContext(id int64, ctx context.Context) tea.Cmd {
-	return func() tea.Msg {
-		limit := (m.page + 1) * browsePageSize
-		tracks, err := m.apiClient.GetRecentTracks(ctx, limit)
-		count, countErr := m.apiClient.GetRecentTracksCount(ctx)
+func (m BrowseModel) fetchTracksMsg(ctx context.Context, id int64, forceCount bool) tea.Msg {
+	limit := (m.page + 1) * browsePageSize
+	tracks, err := m.apiClient.GetRecentTracks(ctx, limit)
+
+	count := m.total
+	if forceCount || !m.totalKnown {
+		c, countErr := m.apiClient.GetRecentTracksCount(ctx)
 		if countErr != nil {
 			count = -1
+		} else {
+			count = c
 		}
-		return browseTracksMsg{id: id, tracks: tracks, limit: limit, count: count, err: err}
 	}
+
+	return browseTracksMsg{id: id, tracks: tracks, count: count, err: err}
 }
 
 // Helper functions

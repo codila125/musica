@@ -175,7 +175,7 @@ func TestBrowseModelIgnoresStaleMessages(t *testing.T) {
 	client := fakeAPIClient{recent: []models.Track{{ID: "1", Title: "Song", StreamURL: "url"}}}
 	m := NewBrowseModel(client, pl)
 
-	updated, cmd := m.beginLoadRecentTracks()
+	updated, cmd := m.beginLoadRecentTracks(true)
 	if cmd == nil {
 		t.Fatalf("expected load command")
 	}
@@ -268,6 +268,64 @@ func TestBrowseNextSeedsQueueWhenEmpty(t *testing.T) {
 	}
 }
 
+type countingAPIClient struct {
+	fakeAPIClient
+	countCalls *int
+}
+
+func (f countingAPIClient) GetRecentTracksCount(ctx context.Context) (int, error) {
+	*f.countCalls++
+	return f.fakeAPIClient.count, f.fakeAPIClient.err
+}
+
+func TestBrowsePageTurnReusesKnownCount(t *testing.T) {
+	recent := make([]models.Track, 0, 120)
+	for i := 0; i < 120; i++ {
+		recent = append(recent, models.Track{ID: fmt.Sprintf("%d", i+1), StreamURL: "url"})
+	}
+	calls := 0
+	client := countingAPIClient{fakeAPIClient: fakeAPIClient{recent: recent, count: 120}, countCalls: &calls}
+	pl := &fakePlayerService{}
+	m := NewBrowseModel(client, pl)
+
+	updated, cmd := m.beginLoadRecentTracks(true)
+	msg := cmd().(browseTracksMsg)
+	m, _ = updated.Update(msg)
+	if calls != 1 {
+		t.Fatalf("expected 1 count call after initial load, got %d", calls)
+	}
+	if !m.totalKnown {
+		t.Fatalf("expected total known after initial load")
+	}
+
+	m.page = 1
+	updated2, cmd2 := m.beginLoadRecentTracks(false)
+	msg2 := cmd2().(browseTracksMsg)
+	_, _ = updated2.Update(msg2)
+	if calls != 1 {
+		t.Fatalf("expected count not re-fetched on page turn, got %d calls", calls)
+	}
+}
+
+func TestBrowseForceRefetchesCount(t *testing.T) {
+	recent := []models.Track{{ID: "1", StreamURL: "url"}}
+	calls := 0
+	client := countingAPIClient{fakeAPIClient: fakeAPIClient{recent: recent, count: 1}, countCalls: &calls}
+	pl := &fakePlayerService{}
+	m := NewBrowseModel(client, pl)
+
+	updated, cmd := m.beginLoadRecentTracks(true)
+	msg := cmd().(browseTracksMsg)
+	m, _ = updated.Update(msg)
+
+	updated2, cmd2 := m.beginLoadRecentTracks(true)
+	msg2 := cmd2().(browseTracksMsg)
+	_, _ = updated2.Update(msg2)
+	if calls != 2 {
+		t.Fatalf("expected forced refresh to refetch count, got %d calls", calls)
+	}
+}
+
 func TestBrowsePaginationSlicesTracks(t *testing.T) {
 	recent := make([]models.Track, 0, 120)
 	for i := 0; i < 120; i++ {
@@ -276,7 +334,7 @@ func TestBrowsePaginationSlicesTracks(t *testing.T) {
 	pl := &fakePlayerService{}
 	m := NewBrowseModel(fakeAPIClient{recent: recent}, pl)
 
-	updated, cmd := m.beginLoadRecentTracks()
+	updated, cmd := m.beginLoadRecentTracks(true)
 	if cmd == nil {
 		t.Fatalf("expected load command")
 	}
