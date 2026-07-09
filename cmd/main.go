@@ -82,6 +82,15 @@ func runRemove(name string) error {
 	return nil
 }
 
+func indexOfServer(servers []config.ServerConfig, name string) int {
+	for i, s := range servers {
+		if s.Name == name {
+			return i
+		}
+	}
+	return -1
+}
+
 func runPlayer(serverName string) error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -100,21 +109,15 @@ func runPlayer(serverName string) error {
 		serverName = cfg.Servers[0].Name
 	}
 
-	var serverCfg *config.ServerConfig
-	for i, s := range cfg.Servers {
-		if s.Name == serverName {
-			serverCfg = &cfg.Servers[i]
-			break
-		}
-	}
-
-	if serverCfg == nil {
+	idx := indexOfServer(cfg.Servers, serverName)
+	if idx < 0 {
 		fmt.Printf("Server %q not found. Available servers:\n", serverName)
 		for _, s := range cfg.Servers {
 			fmt.Printf("  - %s (%s)\n", s.Name, s.Type)
 		}
 		return fmt.Errorf("server %q not found", serverName)
 	}
+	serverCfg := &cfg.Servers[idx]
 
 	var client interface{}
 	switch serverCfg.Type {
@@ -162,15 +165,7 @@ func runPlayer(serverName string) error {
 		_ = pl.Close()
 	}()
 
-	currentServer := 0
-	for i, s := range cfg.Servers {
-		if s.Name == serverCfg.Name {
-			currentServer = i
-			break
-		}
-	}
-
-	m := tui.NewModel(client.(tui.API), pl, cfg.Servers, currentServer)
+	m := tui.NewModel(client.(tui.API), pl, cfg.Servers, idx)
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
