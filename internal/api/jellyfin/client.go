@@ -24,7 +24,6 @@ type Client struct {
 	userID  string
 	apiKey  string
 	client  *http.Client
-	debug   bool
 }
 
 type jellyfinArtist struct {
@@ -35,33 +34,29 @@ type jellyfinArtist struct {
 }
 
 type jellyfinAlbum struct {
-	ID          string   `json:"Id"`
-	Name        string   `json:"Name"`
-	Artists     []string `json:"Artists,omitempty"`
-	ArtistItems []struct {
-		ID   string `json:"Id"`
-		Name string `json:"Name"`
-	} `json:"ArtistItems"`
-	ProductionYear int               `json:"ProductionYear"`
-	ImageTags      map[string]string `json:"ImageTags"`
+	ID             string              `json:"Id"`
+	Name           string              `json:"Name"`
+	Artists        []string            `json:"Artists,omitempty"`
+	ArtistItems    []jellyfinArtistRef `json:"ArtistItems"`
+	ProductionYear int                 `json:"ProductionYear"`
+	ImageTags      map[string]string   `json:"ImageTags"`
 }
 
 type jellyfinTrack struct {
-	ID          string   `json:"Id"`
-	Name        string   `json:"Name"`
-	Artists     []string `json:"Artists,omitempty"`
-	ArtistItems []struct {
-		ID   string `json:"Id"`
-		Name string `json:"Name"`
-	} `json:"ArtistItems"`
-	Album        string            `json:"Album"`
-	AlbumID      string            `json:"AlbumId"`
-	RunTimeTicks int64             `json:"RunTimeTicks"`
-	IndexNumber  int               `json:"IndexNumber"`
-	ImageTags    map[string]string `json:"ImageTags"`
-	MediaSources []struct {
-		Container string `json:"Container"`
-	} `json:"MediaSources,omitempty"`
+	ID           string                `json:"Id"`
+	Name         string                `json:"Name"`
+	Artists      []string              `json:"Artists,omitempty"`
+	ArtistItems  []jellyfinArtistRef   `json:"ArtistItems"`
+	Album        string                `json:"Album"`
+	AlbumID      string                `json:"AlbumId"`
+	RunTimeTicks int64                 `json:"RunTimeTicks"`
+	IndexNumber  int                   `json:"IndexNumber"`
+	ImageTags    map[string]string     `json:"ImageTags"`
+	MediaSources []jellyfinMediaSource `json:"MediaSources,omitempty"`
+}
+
+type jellyfinMediaSource struct {
+	Container string `json:"Container"`
 }
 
 type jellyfinPlaylist struct {
@@ -75,7 +70,6 @@ func New(cfg config.ServerConfig) *Client {
 	return &Client{
 		baseURL: cfg.URL,
 		client:  &http.Client{Timeout: 30 * time.Second},
-		debug:   true,
 	}
 }
 
@@ -177,9 +171,7 @@ func (c *Client) doRequest(ctx context.Context, endpoint string, params url.Valu
 		u.RawQuery = q.Encode()
 	}
 
-	if c.debug {
-		logger.Get().Debug("GET %s", u.String())
-	}
+	logger.Get().Debug("GET %s", u.String())
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
@@ -200,6 +192,34 @@ func (c *Client) doRequest(ctx context.Context, endpoint string, params url.Valu
 	}
 
 	return json.NewDecoder(resp.Body).Decode(v)
+}
+
+// jellyfinArtistRef matches the ArtistItems element shape shared by
+// jellyfinTrack, jellyfinAlbum, and the inline search-hint struct.
+type jellyfinArtistRef struct {
+	ID   string `json:"Id"`
+	Name string `json:"Name"`
+}
+
+func resolveArtist(items []jellyfinArtistRef, names []string) (name, id string) {
+	if len(items) > 0 {
+		return items[0].Name, items[0].ID
+	}
+	if len(names) > 0 {
+		return names[0], ""
+	}
+	return "", ""
+}
+
+func ticksToSeconds(ticks int64) int {
+	return int(ticks / 10000000)
+}
+
+func mediaFormat(sources []jellyfinMediaSource) string {
+	if len(sources) > 0 && sources[0].Container != "" {
+		return strings.ToUpper(sources[0].Container)
+	}
+	return ""
 }
 
 func (c *Client) Ping(ctx context.Context) error {
@@ -231,20 +251,9 @@ func (c *Client) GetRecentTracks(ctx context.Context, limit int) ([]models.Track
 
 	tracks := make([]models.Track, 0, len(resp.Items))
 	for _, t := range resp.Items {
-		artistName := ""
-		artistID := ""
-		if len(t.ArtistItems) > 0 {
-			artistName = t.ArtistItems[0].Name
-			artistID = t.ArtistItems[0].ID
-		} else if len(t.Artists) > 0 {
-			artistName = t.Artists[0]
-		}
-
-		duration := int(t.RunTimeTicks / 10000000)
-		format := ""
-		if len(t.MediaSources) > 0 && t.MediaSources[0].Container != "" {
-			format = strings.ToUpper(t.MediaSources[0].Container)
-		}
+		artistName, artistID := resolveArtist(t.ArtistItems, t.Artists)
+		duration := ticksToSeconds(t.RunTimeTicks)
+		format := mediaFormat(t.MediaSources)
 		tracks = append(tracks, models.Track{
 			ID:        t.ID,
 			Title:     t.Name,
@@ -260,9 +269,7 @@ func (c *Client) GetRecentTracks(ctx context.Context, limit int) ([]models.Track
 		})
 	}
 
-	if c.debug {
-		logger.Get().Debug("Found %d recent tracks", len(tracks))
-	}
+	logger.Get().Debug("Found %d recent tracks", len(tracks))
 
 	return tracks, nil
 }
@@ -301,9 +308,7 @@ func (c *Client) GetArtists(ctx context.Context) ([]models.Artist, error) {
 	}
 
 	if err := c.doRequest(ctx, "/Artists/AlbumArtists", params, &resp); err != nil {
-		if c.debug {
-			logger.Get().Debug("/Artists/AlbumArtists failed: %v, trying /Artists", err)
-		}
+		logger.Get().Debug("/Artists/AlbumArtists failed: %v, trying /Artists", err)
 		if err := c.doRequest(ctx, "/Artists", params, &resp); err != nil {
 			return nil, err
 		}
@@ -325,9 +330,7 @@ func (c *Client) GetArtists(ctx context.Context) ([]models.Artist, error) {
 		})
 	}
 
-	if c.debug {
-		logger.Get().Debug("Found %d artists", len(artists))
-	}
+	logger.Get().Debug("Found %d artists", len(artists))
 
 	return artists, nil
 }
@@ -351,9 +354,7 @@ func (c *Client) GetAlbums(ctx context.Context, artistID string) ([]models.Album
 
 	if err := c.doRequest(ctx, "/Items", params, &resp); err != nil {
 		if artistID != "" {
-			if c.debug {
-				logger.Get().Debug("/Items with ArtistIds failed: %v, trying without", err)
-			}
+			logger.Get().Debug("/Items with ArtistIds failed: %v, trying without", err)
 			delete(params, "ArtistIds")
 			if err := c.doRequest(ctx, "/Items", params, &resp); err != nil {
 				return nil, err
@@ -364,9 +365,7 @@ func (c *Client) GetAlbums(ctx context.Context, artistID string) ([]models.Album
 	}
 
 	if artistID != "" && len(resp.Items) == 0 {
-		if c.debug {
-			logger.Get().Debug("No albums for artist filter, falling back to all albums")
-		}
+		logger.Get().Debug("No albums for artist filter, falling back to all albums")
 		delete(params, "ArtistIds")
 		if err := c.doRequest(ctx, "/Items", params, &resp); err != nil {
 			return nil, err
@@ -375,14 +374,7 @@ func (c *Client) GetAlbums(ctx context.Context, artistID string) ([]models.Album
 
 	albums := make([]models.Album, 0, len(resp.Items))
 	for _, a := range resp.Items {
-		artistName := ""
-		artistID := ""
-		if len(a.ArtistItems) > 0 {
-			artistName = a.ArtistItems[0].Name
-			artistID = a.ArtistItems[0].ID
-		} else if len(a.Artists) > 0 {
-			artistName = a.Artists[0]
-		}
+		artistName, artistID := resolveArtist(a.ArtistItems, a.Artists)
 
 		coverURL := ""
 		if a.ImageTags != nil {
@@ -401,9 +393,7 @@ func (c *Client) GetAlbums(ctx context.Context, artistID string) ([]models.Album
 		})
 	}
 
-	if c.debug {
-		logger.Get().Debug("Found %d albums", len(albums))
-	}
+	logger.Get().Debug("Found %d albums", len(albums))
 
 	return albums, nil
 }
@@ -427,20 +417,9 @@ func (c *Client) GetTracks(ctx context.Context, albumID string) ([]models.Track,
 
 	tracks := make([]models.Track, 0, len(resp.Items))
 	for _, t := range resp.Items {
-		artistName := ""
-		artistID := ""
-		if len(t.ArtistItems) > 0 {
-			artistName = t.ArtistItems[0].Name
-			artistID = t.ArtistItems[0].ID
-		} else if len(t.Artists) > 0 {
-			artistName = t.Artists[0]
-		}
-
-		duration := int(t.RunTimeTicks / 10000000)
-		format := ""
-		if len(t.MediaSources) > 0 && t.MediaSources[0].Container != "" {
-			format = strings.ToUpper(t.MediaSources[0].Container)
-		}
+		artistName, artistID := resolveArtist(t.ArtistItems, t.Artists)
+		duration := ticksToSeconds(t.RunTimeTicks)
+		format := mediaFormat(t.MediaSources)
 
 		tracks = append(tracks, models.Track{
 			ID:        t.ID,
@@ -457,9 +436,7 @@ func (c *Client) GetTracks(ctx context.Context, albumID string) ([]models.Track,
 		})
 	}
 
-	if c.debug {
-		logger.Get().Debug("Found %d tracks", len(tracks))
-	}
+	logger.Get().Debug("Found %d tracks", len(tracks))
 
 	return tracks, nil
 }
@@ -517,20 +494,9 @@ func (c *Client) GetPlaylistTracks(ctx context.Context, playlistID string) ([]mo
 
 	tracks := make([]models.Track, 0, len(resp.Items))
 	for _, t := range resp.Items {
-		artistName := ""
-		artistID := ""
-		if len(t.ArtistItems) > 0 {
-			artistName = t.ArtistItems[0].Name
-			artistID = t.ArtistItems[0].ID
-		} else if len(t.Artists) > 0 {
-			artistName = t.Artists[0]
-		}
-
-		duration := int(t.RunTimeTicks / 10000000)
-		format := ""
-		if len(t.MediaSources) > 0 && t.MediaSources[0].Container != "" {
-			format = strings.ToUpper(t.MediaSources[0].Container)
-		}
+		artistName, artistID := resolveArtist(t.ArtistItems, t.Artists)
+		duration := ticksToSeconds(t.RunTimeTicks)
+		format := mediaFormat(t.MediaSources)
 
 		tracks = append(tracks, models.Track{
 			ID:        t.ID,
@@ -553,19 +519,16 @@ func (c *Client) GetPlaylistTracks(ctx context.Context, playlistID string) ([]mo
 func (c *Client) Search(ctx context.Context, query string) (models.SearchResult, error) {
 	var resp struct {
 		SearchHints []struct {
-			ID          string   `json:"Id"`
-			ItemID      string   `json:"ItemId"`
-			Name        string   `json:"Name"`
-			Type        string   `json:"Type"`
-			Album       string   `json:"Album"`
-			AlbumID     string   `json:"AlbumId"`
-			Artists     []string `json:"Artists,omitempty"`
-			ArtistItems []struct {
-				ID   string `json:"Id"`
-				Name string `json:"Name"`
-			} `json:"ArtistItems"`
-			RunTimeTicks int64 `json:"RunTimeTicks"`
-			IndexNumber  int   `json:"IndexNumber"`
+			ID           string              `json:"Id"`
+			ItemID       string              `json:"ItemId"`
+			Name         string              `json:"Name"`
+			Type         string              `json:"Type"`
+			Album        string              `json:"Album"`
+			AlbumID      string              `json:"AlbumId"`
+			Artists      []string            `json:"Artists,omitempty"`
+			ArtistItems  []jellyfinArtistRef `json:"ArtistItems"`
+			RunTimeTicks int64               `json:"RunTimeTicks"`
+			IndexNumber  int                 `json:"IndexNumber"`
 		} `json:"SearchHints"`
 	}
 
@@ -586,18 +549,11 @@ func (c *Client) Search(ctx context.Context, query string) (models.SearchResult,
 		if id == "" {
 			id = h.ItemID
 		}
-		artistName := ""
-		artistID := ""
-		if len(h.ArtistItems) > 0 {
-			artistName = h.ArtistItems[0].Name
-			artistID = h.ArtistItems[0].ID
-		} else if len(h.Artists) > 0 {
-			artistName = h.Artists[0]
-		}
+		artistName, artistID := resolveArtist(h.ArtistItems, h.Artists)
 
 		switch h.Type {
 		case "Audio":
-			duration := int(h.RunTimeTicks / 10000000)
+			duration := ticksToSeconds(h.RunTimeTicks)
 			result.Tracks = append(result.Tracks, models.Track{
 				ID:        id,
 				Title:     h.Name,
