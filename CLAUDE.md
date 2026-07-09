@@ -71,6 +71,7 @@ Config CLI subcommands (`cmd/main.go`, `cmd/setup.go`): `setup`, `list`, `remove
 Style
 - `gofmt` is non-negotiable; CI fails on unformatted code (`make fmt-check`). Run `make fmt` before committing.
 - Package = one clear responsibility, short lowercase name, no underscores (`api`, `player`, `config`). Never add a `utils`/`helpers`/`common` grab-bag package.
+- DRY: don't copy-paste the same logic across functions or files. If a block appears twice with the same meaning (not just coincidentally similar text), extract it into a shared helper the first time you touch either copy. Don't extract mid-refactor abstractions for code that merely looks similar but represents different domain concepts — that's coincidental duplication, not a DRY violation.
 - Default to unexported; export only what another package genuinely needs to call.
 - A file growing past ~500 lines (`tui/tui.go`, `player/player.go`) is a signal to split by responsibility next time you're in there — not a size to imitate in new files.
 - Errors: wrap with `%w`, never silently discard (`_ = err` only when truly inert, and say why in a comment). Use the existing `api.Error` / `api.Wrap` / `api.KindOf` pattern for anything a caller must branch on by category — don't invent a second error scheme alongside it.
