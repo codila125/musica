@@ -21,10 +21,6 @@ func NewQueueModel(pl PlaybackService) QueueModel {
 	}
 }
 
-func NewQueueModelWithService(pl PlaybackService) QueueModel {
-	return QueueModel{playback: pl}
-}
-
 func (m QueueModel) Init() tea.Cmd {
 	return nil
 }

@@ -173,7 +173,7 @@ func (f *fakePlayerService) AppendToQueue(track models.Track) error {
 func TestBrowseModelIgnoresStaleMessages(t *testing.T) {
 	pl := &fakePlayerService{}
 	client := fakeAPIClient{recent: []models.Track{{ID: "1", Title: "Song", StreamURL: "url"}}}
-	m := NewBrowseModelWithService(client, pl)
+	m := NewBrowseModel(client, pl)
 
 	updated, cmd := m.beginLoadRecentTracks()
 	if cmd == nil {
@@ -190,7 +190,7 @@ func TestBrowseModelIgnoresStaleMessages(t *testing.T) {
 
 func TestBrowseModelHandlesLoadError(t *testing.T) {
 	pl := &fakePlayerService{}
-	m := NewBrowseModelWithService(fakeAPIClient{}, pl)
+	m := NewBrowseModel(fakeAPIClient{}, pl)
 	err := errors.New("load failed")
 
 	m2, _ := m.Update(browseTracksMsg{id: m.loadReqID, err: err})
@@ -201,7 +201,7 @@ func TestBrowseModelHandlesLoadError(t *testing.T) {
 
 func TestBrowseQueueShortcut(t *testing.T) {
 	pl := &fakePlayerService{}
-	m := NewBrowseModelWithService(fakeAPIClient{}, pl)
+	m := NewBrowseModel(fakeAPIClient{}, pl)
 	m.tracks = []models.Track{{ID: "1", Title: "Song", StreamURL: "url"}}
 
 	m2, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
@@ -222,7 +222,7 @@ func TestBrowseQueueShortcutAddsAfterCurrent(t *testing.T) {
 	pl.current = 0
 	pl.state = models.StatePlaying
 
-	m := NewBrowseModelWithService(fakeAPIClient{}, pl)
+	m := NewBrowseModel(fakeAPIClient{}, pl)
 	m.tracks = []models.Track{{ID: "3", Title: "Song 3", StreamURL: "url3"}}
 
 	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
@@ -237,7 +237,7 @@ func TestBrowseQueueShortcutAddsAfterCurrent(t *testing.T) {
 
 func TestBrowsePlaySeedsQueueWhenEmpty(t *testing.T) {
 	pl := &fakePlayerService{}
-	m := NewBrowseModelWithService(fakeAPIClient{}, pl)
+	m := NewBrowseModel(fakeAPIClient{}, pl)
 	m.tracks = []models.Track{{ID: "1", Title: "Song", StreamURL: "url"}}
 
 	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
@@ -252,7 +252,7 @@ func TestBrowsePlaySeedsQueueWhenEmpty(t *testing.T) {
 
 func TestBrowseNextSeedsQueueWhenEmpty(t *testing.T) {
 	pl := &fakePlayerService{}
-	m := NewBrowseModelWithService(fakeAPIClient{}, pl)
+	m := NewBrowseModel(fakeAPIClient{}, pl)
 	m.tracks = []models.Track{
 		{ID: "1", Title: "Song 1", StreamURL: "url1"},
 		{ID: "2", Title: "Song 2", StreamURL: "url2"},
@@ -274,7 +274,7 @@ func TestBrowsePaginationSlicesTracks(t *testing.T) {
 		recent = append(recent, models.Track{ID: fmt.Sprintf("%d", i+1), Title: fmt.Sprintf("Song %d", i+1), StreamURL: "url"})
 	}
 	pl := &fakePlayerService{}
-	m := NewBrowseModelWithService(fakeAPIClient{recent: recent}, pl)
+	m := NewBrowseModel(fakeAPIClient{recent: recent}, pl)
 
 	updated, cmd := m.beginLoadRecentTracks()
 	if cmd == nil {

@@ -66,26 +66,6 @@ func NewSearchModel(client api.Client, pl PlaybackService) SearchModel {
 	}
 }
 
-func NewSearchModelWithService(client api.Client, pl PlaybackService) SearchModel {
-	ti := textinput.New()
-	ti.Placeholder = "Type to search..."
-	ti.Focus()
-	ti.CharLimit = 100
-	ti.Width = 50
-
-	s := spinner.New()
-	s.Spinner = spinner.Dot
-
-	return SearchModel{
-		apiClient:   client,
-		playback:    pl,
-		input:       ti,
-		spinner:     s,
-		state:       SearchInput,
-		searchReqID: nextRequestID(),
-	}
-}
-
 func (m SearchModel) Init() tea.Cmd {
 	return textinput.Blink
 }

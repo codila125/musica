@@ -11,7 +11,7 @@ import (
 
 func TestSearchModelIgnoresStaleMessages(t *testing.T) {
 	pl := &fakePlayerService{}
-	m := NewSearchModelWithService(fakeAPIClient{}, pl)
+	m := NewSearchModel(fakeAPIClient{}, pl)
 
 	stale := searchResultsMsg{id: m.searchReqID - 1, result: models.SearchResult{}}
 	m2, _ := m.Update(stale)
@@ -22,7 +22,7 @@ func TestSearchModelIgnoresStaleMessages(t *testing.T) {
 
 func TestSearchModelHandlesErrorMessage(t *testing.T) {
 	pl := &fakePlayerService{}
-	m := NewSearchModelWithService(fakeAPIClient{}, pl)
+	m := NewSearchModel(fakeAPIClient{}, pl)
 	m.loading = true
 	err := errors.New("search failed")
 

@@ -12,7 +12,7 @@ import (
 
 func TestSearchEscCancelsLoadingAndReturnsInput(t *testing.T) {
 	pl := &fakePlayerService{}
-	m := NewSearchModelWithService(fakeAPIClient{}, pl)
+	m := NewSearchModel(fakeAPIClient{}, pl)
 	m.state = SearchResults
 	m.loading = true
 	called := false
@@ -33,7 +33,7 @@ func TestSearchEscCancelsLoadingAndReturnsInput(t *testing.T) {
 func TestQueueCursorClampsWhenQueueShrinks(t *testing.T) {
 	pl := &fakePlayerService{}
 	pl.queue = []models.Track{{ID: "1", Title: "a", StreamURL: "u"}}
-	m := NewQueueModelWithService(pl)
+	m := NewQueueModel(pl)
 	m.cursor = 5
 
 	m2, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 20})

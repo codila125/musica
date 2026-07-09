@@ -50,10 +50,6 @@ func NewBrowseModel(client api.Client, pl PlaybackService) BrowseModel {
 	}
 }
 
-func NewBrowseModelWithService(client api.Client, pl PlaybackService) BrowseModel {
-	return NewBrowseModel(client, pl)
-}
-
 func (m BrowseModel) Init() tea.Cmd {
 	return m.loadRecentTracksCmd(m.loadReqID)
 }
