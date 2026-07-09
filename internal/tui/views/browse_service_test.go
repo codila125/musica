@@ -22,7 +22,10 @@ type fakeAPIClient struct {
 
 func (f fakeAPIClient) Ping(ctx context.Context) error { return nil }
 func (f fakeAPIClient) GetRecentTracks(ctx context.Context, limit int) ([]models.Track, error) {
-	return f.recent, f.err
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.recent[:min(limit, len(f.recent))], nil
 }
 func (f fakeAPIClient) GetRecentTracksCount(ctx context.Context) (int, error) {
 	return f.count, f.err
@@ -270,12 +273,20 @@ func TestBrowseNextSeedsQueueWhenEmpty(t *testing.T) {
 
 type countingAPIClient struct {
 	fakeAPIClient
-	countCalls *int
+	countCalls  *int
+	recentCalls *int
 }
 
 func (f countingAPIClient) GetRecentTracksCount(ctx context.Context) (int, error) {
 	*f.countCalls++
 	return f.fakeAPIClient.count, f.fakeAPIClient.err
+}
+
+func (f countingAPIClient) GetRecentTracks(ctx context.Context, limit int) ([]models.Track, error) {
+	if f.recentCalls != nil {
+		*f.recentCalls++
+	}
+	return f.fakeAPIClient.GetRecentTracks(ctx, limit)
 }
 
 func TestBrowsePageTurnReusesKnownCount(t *testing.T) {
@@ -304,6 +315,55 @@ func TestBrowsePageTurnReusesKnownCount(t *testing.T) {
 	_, _ = updated2.Update(msg2)
 	if calls != 1 {
 		t.Fatalf("expected count not re-fetched on page turn, got %d calls", calls)
+	}
+}
+
+func TestBrowsePageTurnWithinCacheSkipsNetwork(t *testing.T) {
+	recent := make([]models.Track, 0, 120)
+	for i := 0; i < 120; i++ {
+		recent = append(recent, models.Track{ID: fmt.Sprintf("%d", i+1), StreamURL: "url"})
+	}
+	countCalls, recentCalls := 0, 0
+	client := countingAPIClient{
+		fakeAPIClient: fakeAPIClient{recent: recent, count: 120},
+		countCalls:    &countCalls,
+		recentCalls:   &recentCalls,
+	}
+	pl := &fakePlayerService{}
+	m := NewBrowseModel(client, pl)
+
+	// Initial load: page 0, needs 50, cache empty -> real fetch.
+	updated, cmd := m.beginLoadRecentTracks(true)
+	m, _ = updated.Update(cmd().(browseTracksMsg))
+	if recentCalls != 1 {
+		t.Fatalf("expected 1 GetRecentTracks call after initial load, got %d", recentCalls)
+	}
+
+	// Page 1 needs 100, cache only has 50 -> real fetch, cache grows to 100.
+	m.page = 1
+	updated, cmd = m.beginLoadRecentTracks(false)
+	if cmd == nil {
+		t.Fatalf("expected a fetch when page turn exceeds cached range")
+	}
+	m, _ = updated.Update(cmd().(browseTracksMsg))
+	if recentCalls != 2 {
+		t.Fatalf("expected 2 GetRecentTracks calls after growing to page 1, got %d", recentCalls)
+	}
+
+	// Back to page 0: needs 50, cache already has 100 -> no network call at all.
+	m.page = 0
+	updated, cmd = m.beginLoadRecentTracks(false)
+	if cmd != nil {
+		t.Fatalf("expected cached page turn to skip the network fetch entirely")
+	}
+	if recentCalls != 2 {
+		t.Fatalf("expected no additional GetRecentTracks call, got %d", recentCalls)
+	}
+	if len(updated.tracks) != 50 {
+		t.Fatalf("expected 50 tracks served from cache, got %d", len(updated.tracks))
+	}
+	if updated.tracks[0].ID != "1" {
+		t.Fatalf("expected first track id 1, got %s", updated.tracks[0].ID)
 	}
 }
 

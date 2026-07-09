@@ -21,6 +21,7 @@ type BrowseModel struct {
 	playback  PlaybackService
 
 	tracks     []models.Track
+	fetched    []models.Track // largest track set fetched so far, cached across page turns
 	page       int
 	total      int
 	totalKnown bool
@@ -131,45 +132,54 @@ func (m BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 		if msg.count == 0 && len(msg.tracks) > 0 {
 			countKnown = false
 		}
-		m.totalKnown = countKnown
-		if countKnown {
-			m.total = msg.count
-		} else {
-			m.total = len(msg.tracks)
-		}
-		pageSize := browsePageSize
-		maxPage := 0
-		if m.total > 0 {
-			maxPage = (m.total - 1) / pageSize
-		}
-		if m.page > maxPage {
-			m.page = maxPage
-		}
-		start := m.page * pageSize
-		end := start + pageSize
-		if start > m.total {
-			start = m.total
-		}
-		if end > m.total {
-			end = m.total
-		}
-		if start > len(msg.tracks) {
-			start = len(msg.tracks)
-		}
-		if end > len(msg.tracks) {
-			end = len(msg.tracks)
-		}
-		m.tracks = append([]models.Track(nil), msg.tracks[start:end]...)
-		if m.cursor >= len(m.tracks) {
-			m.cursor = len(m.tracks) - 1
-		}
-		if m.cursor < 0 {
-			m.cursor = 0
-		}
-		m.err = nil
+		m.fetched = msg.tracks
+		return m.applyPage(msg.tracks, msg.count, countKnown), nil
 	}
 
 	return m, nil
+}
+
+// applyPage recomputes total/totalKnown and slices tracks down to the
+// current page. Shared by a fresh server response and a cache hit that
+// reuses a previously fetched track set.
+func (m BrowseModel) applyPage(tracks []models.Track, count int, countKnown bool) BrowseModel {
+	m.totalKnown = countKnown
+	if countKnown {
+		m.total = count
+	} else {
+		m.total = len(tracks)
+	}
+	pageSize := browsePageSize
+	maxPage := 0
+	if m.total > 0 {
+		maxPage = (m.total - 1) / pageSize
+	}
+	if m.page > maxPage {
+		m.page = maxPage
+	}
+	start := m.page * pageSize
+	end := start + pageSize
+	if start > m.total {
+		start = m.total
+	}
+	if end > m.total {
+		end = m.total
+	}
+	if start > len(tracks) {
+		start = len(tracks)
+	}
+	if end > len(tracks) {
+		end = len(tracks)
+	}
+	m.tracks = append([]models.Track(nil), tracks[start:end]...)
+	if m.cursor >= len(m.tracks) {
+		m.cursor = len(m.tracks) - 1
+	}
+	if m.cursor < 0 {
+		m.cursor = 0
+	}
+	m.err = nil
+	return m
 }
 
 func (m BrowseModel) View() string {
@@ -322,12 +332,19 @@ func (m BrowseModel) renderCompactCassette() string {
 	return cassette
 }
 
-// beginLoadRecentTracks starts an async reload. forceCount refetches the
-// library total even if already known (used for an explicit user refresh);
-// otherwise a previously known total is reused, since it rarely changes
-// between page turns and refetching it doubles the request count for no
-// benefit.
+// beginLoadRecentTracks starts a page load. forceCount refetches the library
+// total even if already known (used for an explicit user refresh) and skips
+// the cache; otherwise a page turn that stays within the largest track set
+// already fetched is served straight from that cache with no network call,
+// since paging back and forth over recently seen tracks is common and the
+// underlying data rarely changes mid-session.
 func (m BrowseModel) beginLoadRecentTracks(forceCount bool) (BrowseModel, tea.Cmd) {
+	required := (m.page + 1) * browsePageSize
+	haveEnough := len(m.fetched) >= required || (m.totalKnown && len(m.fetched) >= m.total)
+	if !forceCount && haveEnough {
+		return m.applyPage(m.fetched, m.total, m.totalKnown), nil
+	}
+
 	if m.cancelLoad != nil {
 		m.cancelLoad()
 		m.cancelLoad = nil
