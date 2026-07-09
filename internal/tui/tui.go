@@ -18,6 +18,7 @@ import (
 	"github.com/codila125/musica/internal/models"
 	"github.com/codila125/musica/internal/player"
 	"github.com/codila125/musica/internal/telemetry"
+	"github.com/codila125/musica/internal/tui/views"
 )
 
 type API = api.Client
@@ -496,9 +497,9 @@ func (m Model) renderFooter(w int) string {
 					displayPos = m.duration
 				}
 				if m.duration > 0 {
-					progress = fmt.Sprintf(" %s/%s", formatDuration(displayPos), formatDuration(m.duration))
+					progress = fmt.Sprintf(" %s/%s", views.FormatDuration(displayPos), views.FormatDuration(m.duration))
 				} else {
-					progress = fmt.Sprintf(" %s", formatDuration(displayPos))
+					progress = fmt.Sprintf(" %s", views.FormatDuration(displayPos))
 				}
 			}
 		}
@@ -595,15 +596,6 @@ func (m Model) renderHelp(w, h int) string {
 	lines = append(lines, "", footerStyle.Render("  Press [ctrl+h] to close"))
 
 	return helpBox.Render(strings.Join(lines, "\n"))
-}
-
-func formatDuration(seconds int) string {
-	if seconds < 0 {
-		seconds = 0
-	}
-	m := seconds / 60
-	s := seconds % 60
-	return fmt.Sprintf("%d:%02d", m, s)
 }
 
 func (m Model) renderSoundBars(w int) string {
