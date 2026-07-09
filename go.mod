@@ -1,6 +1,6 @@
 module github.com/codila125/musica
 
-go 1.26.2
+go 1.26.5
 
 require (
 	github.com/charmbracelet/bubbles v1.0.0
