@@ -52,7 +52,7 @@ func runSetup() error {
 	}
 
 	fmt.Print("Password: ")
-	password := readPassword(reader)
+	password := readLine(reader)
 	if password == "" {
 		return fmt.Errorf("password is required")
 	}
@@ -90,11 +90,6 @@ func runSetup() error {
 }
 
 func readLine(r *bufio.Reader) string {
-	line, _ := r.ReadString('\n')
-	return strings.TrimSpace(line)
-}
-
-func readPassword(r *bufio.Reader) string {
 	line, _ := r.ReadString('\n')
 	return strings.TrimSpace(line)
 }
