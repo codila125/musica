@@ -403,20 +403,35 @@ func trimLabel(label string, max int) string {
 	if max <= 0 {
 		return ""
 	}
-	if len(label) <= max {
+	if lipgloss.Width(label) <= max {
 		return label
 	}
-	if max <= 3 {
-		return label[:max]
+	budget := max
+	suffix := "..."
+	if max > 3 {
+		budget = max - 3
+	} else {
+		suffix = ""
 	}
-	return label[:max-3] + "..."
+	var b strings.Builder
+	used := 0
+	for _, r := range label {
+		rw := lipgloss.Width(string(r))
+		if used+rw > budget {
+			break
+		}
+		b.WriteRune(r)
+		used += rw
+	}
+	return b.String() + suffix
 }
 
 func padCenter(s string, w int) string {
-	if len(s) >= w {
+	sw := lipgloss.Width(s)
+	if sw >= w {
 		return s
 	}
-	pad := w - len(s)
+	pad := w - sw
 	left := pad / 2
 	right := pad - left
 	return strings.Repeat(" ", left) + s + strings.Repeat(" ", right)
