@@ -12,6 +12,7 @@ import (
 	"github.com/codila125/musica/internal/app"
 	"github.com/codila125/musica/internal/config"
 	"github.com/codila125/musica/internal/logger"
+	"github.com/codila125/musica/internal/models"
 	"github.com/codila125/musica/internal/player"
 	"github.com/codila125/musica/internal/telemetry"
 )
@@ -27,28 +28,28 @@ const (
 )
 
 type Model struct {
-	apiClient     api.Client
-	player        *player.Player
-	playback      *app.PlaybackController
-	servers       []config.ServerConfig
-	currentServer int
-	status        string
-	position      int
-	duration      int
-	positionAt    time.Time
-	progressErr   error
-	barFrame      int
-	blinkCounter  int
-	shineOffset   int
-	tabs          []string
-	activeTab     Tab
-	views         viewAdapter
-	width         int
-	height        int
-	blinkOn       bool
-	state         appState
-	coordinator   switchCoordinator
-	helpVisible   bool
+	apiClient        api.Client
+	player           *player.Player
+	playback         *app.PlaybackController
+	servers          []config.ServerConfig
+	currentServer    int
+	status           string
+	position         int
+	duration         int
+	positionAt       time.Time
+	progressErr      error
+	barFrame         int
+	shineOffset      int
+	lastProgressPoll time.Time
+	tabs             []string
+	activeTab        Tab
+	views            viewAdapter
+	width            int
+	height           int
+	blinkOn          bool
+	state            appState
+	coordinator      switchCoordinator
+	helpVisible      bool
 }
 
 type uiTickMsg time.Time
@@ -84,13 +85,31 @@ func NewModel(client api.Client, pl *player.Player, servers []config.ServerConfi
 
 func (m Model) Init() tea.Cmd {
 	m = m.withState(stateLoading)
-	return tea.Batch(m.views.Init(), uiTickCmd())
+	return tea.Batch(m.views.Init(), uiTickCmd(tickIntervalFor(m.playback.State())))
 }
 
-func uiTickCmd() tea.Cmd {
-	return tea.Tick(80*time.Millisecond, func(t time.Time) tea.Msg {
+func uiTickCmd(interval time.Duration) tea.Cmd {
+	return tea.Tick(interval, func(t time.Time) tea.Msg {
 		return uiTickMsg(t)
 	})
+}
+
+// tickIntervalFor keeps animations smooth while playing and drops the
+// redraw rate ~5x when idle so an open-but-unused player stays cheap.
+func tickIntervalFor(state models.PlayerState) time.Duration {
+	if state == models.StatePlaying {
+		return 80 * time.Millisecond
+	}
+	return 400 * time.Millisecond
+}
+
+// shouldPollProgress throttles mpv IPC to ~1/s; the footer interpolates
+// between polls via positionAt, so faster polling buys nothing.
+func shouldPollProgress(state models.PlayerState, lastPoll, now time.Time) bool {
+	if state != models.StatePlaying && state != models.StatePaused {
+		return false
+	}
+	return lastPoll.IsZero() || now.Sub(lastPoll) >= time.Second
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -104,27 +123,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case uiTickMsg:
-		m.blinkCounter++
-		if m.blinkCounter%12 == 0 {
-			m.blinkOn = !m.blinkOn
+		now := time.Time(msg)
+		// Derive blink from the wall clock so it keeps a steady ~1s cadence
+		// regardless of the current tick interval.
+		m.blinkOn = now.UnixMilli()/960%2 == 0
+		state := m.playback.State()
+		if state == models.StatePlaying {
+			m.barFrame = (m.barFrame + 1) % 64
+			m.shineOffset = (m.shineOffset + 1) % 120
 		}
-		m.barFrame = (m.barFrame + 1) % 64
-		m.shineOffset = (m.shineOffset + 1) % 120
-		pos, posErr := m.playback.Position()
-		dur, durErr := m.playback.Duration()
-		m.progressErr = nil
-		if posErr != nil {
-			m.progressErr = posErr
-		} else {
-			m.position = pos
-			m.positionAt = time.Now()
+		if shouldPollProgress(state, m.lastProgressPoll, now) {
+			m.lastProgressPoll = now
+			pos, posErr := m.playback.Position()
+			dur, durErr := m.playback.Duration()
+			m.progressErr = nil
+			if posErr != nil {
+				m.progressErr = posErr
+			} else {
+				m.position = pos
+				m.positionAt = time.Now()
+			}
+			if durErr != nil {
+				m.progressErr = durErr
+			} else {
+				m.duration = dur
+			}
 		}
-		if durErr != nil {
-			m.progressErr = durErr
-		} else {
-			m.duration = dur
-		}
-		return m, uiTickCmd()
+		return m, uiTickCmd(tickIntervalFor(state))
 
 	case tea.KeyMsg:
 		switch {
