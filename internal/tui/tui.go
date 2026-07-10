@@ -55,6 +55,13 @@ type Model struct {
 	helpVisible      bool
 }
 
+// headerHeight is the rows above the tab bar: 1 frame border + 5 header
+// lines drawn by renderHeader.
+const headerHeight = 6
+
+// tabBarHeight covers the bordered tab buttons (3 rows).
+const tabBarHeight = 3
+
 type uiTickMsg time.Time
 
 type switchServerMsg struct {
@@ -171,6 +178,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}(m.apiClient, track.ID)
 		}
 		return m, tea.Batch(uiTickCmd(tickIntervalFor(state)), progressCmd)
+
+	case tea.MouseMsg:
+		if msg.Action == tea.MouseActionPress {
+			switch msg.Button {
+			case tea.MouseButtonWheelUp, tea.MouseButtonWheelDown:
+				if m.activeTab == TabSearch && m.views.SearchIsInInputMode() {
+					return m, nil
+				}
+				r := 'k'
+				if msg.Button == tea.MouseButtonWheelDown {
+					r = 'j'
+				}
+				return m, m.views.UpdateActive(m.activeTab, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+			case tea.MouseButtonLeft:
+				if tab, ok := m.tabAt(msg.X, msg.Y); ok {
+					m.activeTab = tab
+				}
+				return m, nil
+			}
+		}
+		return m, nil
 
 	case tea.KeyMsg:
 		searchTyping := m.activeTab == TabSearch && m.views.SearchIsInInputMode()
@@ -290,6 +318,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, m.views.UpdateActive(m.activeTab, msg)
+}
+
+// tabAt maps a click position to a tab, mirroring renderTabBar geometry:
+// equal-width bordered buttons centered within the frame.
+func (m Model) tabAt(x, y int) (Tab, bool) {
+	if y < headerHeight || y >= headerHeight+tabBarHeight {
+		return 0, false
+	}
+	w := m.width
+	if w < 60 {
+		w = 60
+	}
+	innerW := w - mainFrameStyle.GetHorizontalFrameSize()
+	tabCount := len(m.tabs)
+	tabW := (innerW - 6) / tabCount
+	if tabW < 12 {
+		tabW = 12
+	}
+	cellW := tabW + 2 // rounded border adds one column per side
+	totalW := tabCount * cellW
+	startX := 1 + (innerW-totalW)/2
+	if x < startX || x >= startX+totalW {
+		return 0, false
+	}
+	return Tab((x - startX) / cellW), true
 }
 
 func (m Model) withState(next appState) Model {

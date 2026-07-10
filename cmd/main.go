@@ -167,7 +167,7 @@ func runPlayer(serverName string) error {
 
 	m := tui.NewModel(client.(tui.API), pl, cfg.Servers, idx)
 
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("run tui: %w", err)
 	}
