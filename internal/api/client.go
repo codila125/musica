@@ -19,6 +19,7 @@ type Client interface {
 	Search(ctx context.Context, query string) (models.SearchResult, error)
 	StreamTrack(ctx context.Context, trackID string) (io.ReadCloser, error)
 	Scrobble(ctx context.Context, trackID string) error
+	GetLyrics(ctx context.Context, track models.Track) (models.Lyrics, error)
 	GetStreamURL(trackID string) string
 	GetCoverURL(albumID string) string
 }

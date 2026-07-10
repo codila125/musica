@@ -38,6 +38,16 @@ type Playlist struct {
 	CoverURL   string
 }
 
+type LyricLine struct {
+	StartMs int
+	Text    string
+}
+
+type Lyrics struct {
+	Lines  []LyricLine
+	Synced bool
+}
+
 type SearchResult struct {
 	Tracks  []Track
 	Albums  []Album

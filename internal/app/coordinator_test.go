@@ -37,7 +37,10 @@ func (f fakeClient) StreamTrack(ctx context.Context, trackID string) (io.ReadClo
 }
 func (f fakeClient) GetStreamURL(trackID string) string                 { return "" }
 func (f fakeClient) Scrobble(ctx context.Context, trackID string) error { return nil }
-func (f fakeClient) GetCoverURL(albumID string) string                  { return "" }
+func (f fakeClient) GetLyrics(ctx context.Context, track models.Track) (models.Lyrics, error) {
+	return models.Lyrics{}, nil
+}
+func (f fakeClient) GetCoverURL(albumID string) string { return "" }
 
 func TestNextIndex(t *testing.T) {
 	servers := []config.ServerConfig{{Name: "a"}, {Name: "b"}, {Name: "c"}}

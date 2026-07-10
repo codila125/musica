@@ -49,7 +49,10 @@ func (f fakeAPIClient) StreamTrack(ctx context.Context, trackID string) (io.Read
 }
 func (f fakeAPIClient) GetStreamURL(trackID string) string                 { return "" }
 func (f fakeAPIClient) Scrobble(ctx context.Context, trackID string) error { return nil }
-func (f fakeAPIClient) GetCoverURL(albumID string) string                  { return "" }
+func (f fakeAPIClient) GetLyrics(ctx context.Context, track models.Track) (models.Lyrics, error) {
+	return models.Lyrics{}, nil
+}
+func (f fakeAPIClient) GetCoverURL(albumID string) string { return "" }
 
 type fakePlayerService struct {
 	state    models.PlayerState
