@@ -58,6 +58,10 @@ func (m QueueModel) Update(msg tea.Msg) (QueueModel, tea.Cmd) {
 		case "c":
 			m.playback.ClearQueue()
 			m.cursor = 0
+		case "s":
+			m.playback.Shuffle()
+		case "t":
+			m.playback.CycleRepeat()
 		}
 	}
 

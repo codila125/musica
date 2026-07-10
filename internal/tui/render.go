@@ -252,7 +252,11 @@ func (m Model) renderFooter(w int) string {
 				}
 			}
 		}
-		nowPlaying = nowPlayingStyle.Render(fmt.Sprintf("%s %s - %s%s", stateIcon, track.Title, track.Artist, progress))
+		repeat := ""
+		if rep := m.playback.Repeat(); rep != models.RepeatOff {
+			repeat = " ⟳" + rep.String()
+		}
+		nowPlaying = nowPlayingStyle.Render(fmt.Sprintf("%s %s - %s%s%s", stateIcon, track.Title, track.Artist, progress, repeat))
 	}
 
 	// Key hints
@@ -348,6 +352,8 @@ func (m Model) renderHelp(w, h int) string {
 			footerStyle.Render("  [p] or [enter]  Play/pause track"),
 			footerStyle.Render("  [d] or [x]     Remove track"),
 			footerStyle.Render("  [c]            Clear queue (keeps playing track)"),
+			footerStyle.Render("  [s]            Shuffle upcoming tracks"),
+			footerStyle.Render("  [t]            Cycle repeat (off/all/one)"),
 		)
 	}
 

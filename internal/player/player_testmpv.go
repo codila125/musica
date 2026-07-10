@@ -16,6 +16,7 @@ type Player struct {
 	state    models.PlayerState
 	position int
 	volume   int
+	repeat   RepeatMode
 	mu       sync.Mutex
 	done     chan struct{}
 	ended    chan struct{}
@@ -92,8 +93,33 @@ func (p *Player) Stop() error {
 	return nil
 }
 
-func (p *Player) Next() error     { return nil }
-func (p *Player) Previous() error { return nil }
+func (p *Player) Next() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	next, ok := nextQueueIndex(p.current, len(p.queue), p.repeat, true)
+	if !ok {
+		p.queue = nil
+		p.current = 0
+		p.state = models.StateStopped
+		return errors.New("end of queue")
+	}
+	p.current = next
+	p.position = 0
+	p.state = models.StatePlaying
+	return nil
+}
+
+func (p *Player) Previous() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.current <= 0 {
+		return errors.New("start of queue")
+	}
+	p.current--
+	p.position = 0
+	p.state = models.StatePlaying
+	return nil
+}
 
 func (p *Player) SetVolume(vol int) {
 	p.mu.Lock()

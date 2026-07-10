@@ -51,3 +51,22 @@ const (
 	StatePlaying
 	StatePaused
 )
+
+type RepeatMode int
+
+const (
+	RepeatOff RepeatMode = iota
+	RepeatAll
+	RepeatOne
+)
+
+func (m RepeatMode) String() string {
+	switch m {
+	case RepeatAll:
+		return "ALL"
+	case RepeatOne:
+		return "ONE"
+	default:
+		return "OFF"
+	}
+}

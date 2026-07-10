@@ -108,6 +108,18 @@ func (c *PlaybackController) ClearQueue() {
 	c.player.ClearQueue()
 }
 
+func (c *PlaybackController) Shuffle() {
+	c.player.Shuffle()
+}
+
+func (c *PlaybackController) CycleRepeat() models.RepeatMode {
+	return c.player.CycleRepeat()
+}
+
+func (c *PlaybackController) Repeat() models.RepeatMode {
+	return c.player.Repeat()
+}
+
 func (c *PlaybackController) CurrentIndex() int {
 	return c.player.CurrentIndex()
 }

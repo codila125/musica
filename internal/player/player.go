@@ -22,6 +22,7 @@ type Player struct {
 	state     models.PlayerState
 	pausedPos float64
 	volume    int
+	repeat    RepeatMode
 	mu        sync.Mutex
 	done      chan struct{}
 	ended     chan struct{}
@@ -252,7 +253,8 @@ func (p *Player) Next() error {
 		return fmt.Errorf("queue is empty")
 	}
 
-	if p.current >= len(p.queue)-1 {
+	next, ok := nextQueueIndex(p.current, len(p.queue), p.repeat, true)
+	if !ok {
 		p.queue = nil
 		p.current = 0
 		p.pausedPos = 0
@@ -261,7 +263,7 @@ func (p *Player) Next() error {
 		return fmt.Errorf("end of queue")
 	}
 
-	p.current++
+	p.current = next
 	p.pausedPos = 0
 
 	if err := p.mpv.Command([]string{"loadfile", p.queue[p.current].StreamURL, "replace"}); err != nil {
@@ -483,8 +485,8 @@ func (p *Player) Monitor(onTrackEnd func()) {
 			return
 		case <-p.ended:
 			p.mu.Lock()
-			if p.current < len(p.queue)-1 {
-				p.current++
+			if next, ok := nextQueueIndex(p.current, len(p.queue), p.repeat, false); ok {
+				p.current = next
 				p.pausedPos = 0
 				p.mpv.Command([]string{"loadfile", p.queue[p.current].StreamURL, "replace"})
 				p.mpv.SetPropertyString("pause", "no")

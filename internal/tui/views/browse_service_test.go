@@ -51,9 +51,11 @@ func (f fakeAPIClient) GetStreamURL(trackID string) string { return "" }
 func (f fakeAPIClient) GetCoverURL(albumID string) string  { return "" }
 
 type fakePlayerService struct {
-	state   models.PlayerState
-	queue   []models.Track
-	current int
+	state    models.PlayerState
+	queue    []models.Track
+	current  int
+	shuffled bool
+	repeat   models.RepeatMode
 }
 
 func (f *fakePlayerService) ToggleTrack(track models.Track) error {
@@ -172,6 +174,12 @@ func (f *fakePlayerService) RemoveQueueTrack(idx int) error {
 	}
 	return nil
 }
+func (f *fakePlayerService) Shuffle() { f.shuffled = true }
+func (f *fakePlayerService) CycleRepeat() models.RepeatMode {
+	f.repeat = (f.repeat + 1) % 3
+	return f.repeat
+}
+func (f *fakePlayerService) Repeat() models.RepeatMode { return f.repeat }
 func (f *fakePlayerService) ClearQueue() {
 	if f.state == models.StateStopped || f.current < 0 || f.current >= len(f.queue) {
 		f.queue = nil

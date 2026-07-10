@@ -2,9 +2,69 @@ package player
 
 import (
 	"fmt"
+	"math/rand"
 
 	"github.com/codila125/musica/internal/models"
 )
+
+// RepeatMode is aliased from models so views and app can share the type
+// without importing the player package.
+type RepeatMode = models.RepeatMode
+
+const (
+	RepeatOff = models.RepeatOff
+	RepeatAll = models.RepeatAll
+	RepeatOne = models.RepeatOne
+)
+
+// CycleRepeat advances off -> all -> one -> off and returns the new mode.
+func (p *Player) CycleRepeat() RepeatMode {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.repeat = (p.repeat + 1) % 3
+	return p.repeat
+}
+
+func (p *Player) Repeat() RepeatMode {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.repeat
+}
+
+// nextQueueIndex decides where playback goes after current. Repeat-one
+// only pins the index on automatic advance (track end); a manual next
+// still moves on, wrapping like repeat-all.
+func nextQueueIndex(current, qlen int, repeat RepeatMode, manual bool) (int, bool) {
+	if qlen == 0 {
+		return 0, false
+	}
+	if repeat == RepeatOne && !manual {
+		return current, true
+	}
+	if current+1 < qlen {
+		return current + 1, true
+	}
+	if repeat == RepeatAll || repeat == RepeatOne {
+		return 0, true
+	}
+	return 0, false
+}
+
+// Shuffle randomizes the upcoming tracks, leaving the played portion and
+// the current track in place.
+func (p *Player) Shuffle() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	start := p.current + 1
+	if start >= len(p.queue) {
+		return
+	}
+	rest := p.queue[start:]
+	rand.Shuffle(len(rest), func(i, j int) {
+		rest[i], rest[j] = rest[j], rest[i]
+	})
+}
 
 // Queue mutations are pure index math on fields shared by both the mpv
 // and testmpv Player structs, so this file builds under either tag.

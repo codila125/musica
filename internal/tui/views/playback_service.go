@@ -18,6 +18,9 @@ type PlaybackService interface {
 	Queue() []models.Track
 	RemoveQueueTrack(idx int) error
 	ClearQueue()
+	Shuffle()
+	CycleRepeat() models.RepeatMode
+	Repeat() models.RepeatMode
 	CurrentIndex() int
 	Position() (int, error)
 	Duration() (int, error)
