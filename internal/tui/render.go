@@ -95,14 +95,14 @@ func (m Model) View() string {
 		Width(w).
 		Height(h)
 
-	output := frame.Render(body)
-
 	if m.helpVisible {
+		// Replace the frame while help is open; appending below would push
+		// the UI past the terminal height and scroll the screen.
 		help := m.renderHelp(w, h)
-		output = lipgloss.JoinVertical(lipgloss.Left, output, help)
+		return lipgloss.Place(w, h, lipgloss.Center, lipgloss.Center, help)
 	}
 
-	return output
+	return frame.Render(body)
 }
 
 func (m Model) renderHeader(w int) string {
