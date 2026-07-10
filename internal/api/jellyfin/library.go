@@ -33,10 +33,48 @@ type jellyfinTrack struct {
 	ArtistItems  []jellyfinArtistRef   `json:"ArtistItems"`
 	Album        string                `json:"Album"`
 	AlbumID      string                `json:"AlbumId"`
+	ParentID     string                `json:"ParentId"`
 	RunTimeTicks int64                 `json:"RunTimeTicks"`
 	IndexNumber  int                   `json:"IndexNumber"`
 	ImageTags    map[string]string     `json:"ImageTags"`
 	MediaSources []jellyfinMediaSource `json:"MediaSources,omitempty"`
+}
+
+// trackFields must accompany every audio /Items query: Jellyfin 10.9+
+// omits AlbumId and MediaSources from the default response, so the album
+// is recovered from ParentId and the container from MediaSources.
+const trackFields = "ParentId,MediaSources"
+
+func (c *Client) mapTrack(t jellyfinTrack) models.Track {
+	artistName, artistID := resolveArtist(t.ArtistItems, t.Artists)
+
+	albumID := t.AlbumID
+	if albumID == "" {
+		albumID = t.ParentID
+	}
+
+	// Audio items carry their own Primary image (inherited album art);
+	// prefer it since albumID may still be empty on flat libraries.
+	coverURL := ""
+	if _, ok := t.ImageTags["Primary"]; ok {
+		coverURL = c.getCoverURL(t.ID)
+	} else if albumID != "" {
+		coverURL = c.getCoverURL(albumID)
+	}
+
+	return models.Track{
+		ID:        t.ID,
+		Title:     t.Name,
+		Artist:    artistName,
+		ArtistID:  artistID,
+		Album:     t.Album,
+		AlbumID:   albumID,
+		Duration:  ticksToSeconds(t.RunTimeTicks),
+		TrackNum:  t.IndexNumber,
+		StreamURL: c.getStreamURL(t.ID),
+		CoverURL:  coverURL,
+		Format:    mediaFormat(t.MediaSources),
+	}
 }
 
 type jellyfinMediaSource struct {
@@ -94,6 +132,7 @@ func (c *Client) GetRecentTracks(ctx context.Context, limit int) ([]models.Track
 		"SortBy":           {"DateCreated,SortName"},
 		"SortOrder":        {"Descending"},
 		"Limit":            {fmt.Sprintf("%d", limit)},
+		"Fields":           {trackFields},
 	}
 
 	if err := c.doRequest(ctx, "/Items", params, &resp); err != nil {
@@ -102,22 +141,7 @@ func (c *Client) GetRecentTracks(ctx context.Context, limit int) ([]models.Track
 
 	tracks := make([]models.Track, 0, len(resp.Items))
 	for _, t := range resp.Items {
-		artistName, artistID := resolveArtist(t.ArtistItems, t.Artists)
-		duration := ticksToSeconds(t.RunTimeTicks)
-		format := mediaFormat(t.MediaSources)
-		tracks = append(tracks, models.Track{
-			ID:        t.ID,
-			Title:     t.Name,
-			Artist:    artistName,
-			ArtistID:  artistID,
-			Album:     t.Album,
-			AlbumID:   t.AlbumID,
-			Duration:  duration,
-			TrackNum:  t.IndexNumber,
-			StreamURL: c.getStreamURL(t.ID),
-			CoverURL:  c.getCoverURL(t.AlbumID),
-			Format:    format,
-		})
+		tracks = append(tracks, c.mapTrack(t))
 	}
 
 	logger.Get().Debug("Found %d recent tracks", len(tracks))
@@ -260,6 +284,7 @@ func (c *Client) GetTracks(ctx context.Context, albumID string) ([]models.Track,
 		"Recursive":        {"true"},
 		"IncludeItemTypes": {"Audio"},
 		"SortBy":           {"IndexNumber", "SortName"},
+		"Fields":           {trackFields},
 	}
 
 	if err := c.doRequest(ctx, "/Items", params, &resp); err != nil {
@@ -268,23 +293,7 @@ func (c *Client) GetTracks(ctx context.Context, albumID string) ([]models.Track,
 
 	tracks := make([]models.Track, 0, len(resp.Items))
 	for _, t := range resp.Items {
-		artistName, artistID := resolveArtist(t.ArtistItems, t.Artists)
-		duration := ticksToSeconds(t.RunTimeTicks)
-		format := mediaFormat(t.MediaSources)
-
-		tracks = append(tracks, models.Track{
-			ID:        t.ID,
-			Title:     t.Name,
-			Artist:    artistName,
-			ArtistID:  artistID,
-			Album:     t.Album,
-			AlbumID:   t.AlbumID,
-			Duration:  duration,
-			TrackNum:  t.IndexNumber,
-			StreamURL: c.getStreamURL(t.ID),
-			CoverURL:  c.getCoverURL(t.AlbumID),
-			Format:    format,
-		})
+		tracks = append(tracks, c.mapTrack(t))
 	}
 
 	logger.Get().Debug("Found %d tracks", len(tracks))
@@ -337,6 +346,7 @@ func (c *Client) GetPlaylistTracks(ctx context.Context, playlistID string) ([]mo
 		"ParentId":  {playlistID},
 		"Recursive": {"true"},
 		"SortBy":    {"SortName"},
+		"Fields":    {trackFields},
 	}
 
 	if err := c.doRequest(ctx, "/Items", params, &resp); err != nil {
@@ -345,23 +355,7 @@ func (c *Client) GetPlaylistTracks(ctx context.Context, playlistID string) ([]mo
 
 	tracks := make([]models.Track, 0, len(resp.Items))
 	for _, t := range resp.Items {
-		artistName, artistID := resolveArtist(t.ArtistItems, t.Artists)
-		duration := ticksToSeconds(t.RunTimeTicks)
-		format := mediaFormat(t.MediaSources)
-
-		tracks = append(tracks, models.Track{
-			ID:        t.ID,
-			Title:     t.Name,
-			Artist:    artistName,
-			ArtistID:  artistID,
-			Album:     t.Album,
-			AlbumID:   t.AlbumID,
-			Duration:  duration,
-			TrackNum:  t.IndexNumber,
-			StreamURL: c.getStreamURL(t.ID),
-			CoverURL:  c.getCoverURL(t.AlbumID),
-			Format:    format,
-		})
+		tracks = append(tracks, c.mapTrack(t))
 	}
 
 	return tracks, nil

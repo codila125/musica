@@ -1,7 +1,13 @@
 package views
 
 import (
+	"bytes"
 	"context"
+	"image"
+	"image/color"
+	"image/png"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -113,6 +119,40 @@ func TestNowPlayingPlaybackKeys(t *testing.T) {
 		t.Fatalf("after p state = %v, want paused", pl.State())
 	}
 	_ = m
+}
+
+func TestNowPlayingRendersCoverForTrackWithoutAlbumID(t *testing.T) {
+	// 2x2 red PNG served over HTTP; track has a CoverURL but no AlbumID
+	// (modern Jellyfin flat responses).
+	img := image.NewRGBA(image.Rect(0, 0, 2, 2))
+	for y := 0; y < 2; y++ {
+		for x := 0; x < 2; x++ {
+			img.SetRGBA(x, y, color.RGBA{R: 255, A: 255})
+		}
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		w.Write(buf.Bytes())
+	}))
+	defer server.Close()
+
+	client := &lyricsFakeClient{}
+	pl := &fakePlayerService{state: models.StatePlaying, queue: queueOf("a"), current: 0}
+	pl.queue[0].CoverURL = server.URL + "/Items/a/Images/Primary"
+
+	m := NewNowPlayingModel(client, pl)
+	m, _ = m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	var cmd tea.Cmd
+	m, cmd = m.Update(ProgressMsg{PositionMs: 0, DurationS: 300})
+	m, _ = drainCmd(m, cmd)
+
+	if !strings.Contains(m.View(), "▀") {
+		t.Fatalf("cover half-blocks missing from view")
+	}
 }
 
 func TestNowPlayingFetchesLyricsOncePerTrack(t *testing.T) {

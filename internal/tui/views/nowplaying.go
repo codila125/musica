@@ -17,6 +17,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/codila125/musica/internal/api"
+	"github.com/codila125/musica/internal/logger"
 	"github.com/codila125/musica/internal/models"
 )
 
@@ -33,8 +34,17 @@ type lyricsLoadedMsg struct {
 }
 
 type coverLoadedMsg struct {
-	albumID  string
+	key      string
 	rendered string
+}
+
+// coverKey caches covers per album, falling back to the track ID when the
+// server returns no album grouping (e.g. Jellyfin flat responses).
+func coverKey(t *models.Track) string {
+	if t.AlbumID != "" {
+		return t.AlbumID
+	}
+	return t.ID
 }
 
 const (
@@ -103,8 +113,8 @@ func (m NowPlayingModel) Update(msg tea.Msg) (NowPlayingModel, tea.Cmd) {
 		}
 
 	case coverLoadedMsg:
-		m.coverCache[msg.albumID] = msg.rendered
-		if cur := m.playback.CurrentTrack(); cur != nil && cur.AlbumID == msg.albumID {
+		m.coverCache[msg.key] = msg.rendered
+		if cur := m.playback.CurrentTrack(); cur != nil && coverKey(cur) == msg.key {
 			m.cover = msg.rendered
 		}
 	}
@@ -139,17 +149,18 @@ func (m *NowPlayingModel) refreshTrackCmd() tea.Cmd {
 			return lyricsLoadedMsg{trackID: track.ID, lyrics: lyrics}
 		})
 	}
-	if cur.AlbumID != m.coverFor {
-		m.coverFor = cur.AlbumID
-		if cached, ok := m.coverCache[cur.AlbumID]; ok {
+	if key := coverKey(cur); key != m.coverFor {
+		m.coverFor = key
+		if cached, ok := m.coverCache[key]; ok {
 			m.cover = cached
 		} else {
 			m.cover = ""
 			if url := cur.CoverURL; url != "" {
-				albumID := cur.AlbumID
 				cmds = append(cmds, func() tea.Msg {
-					return fetchCover(url, albumID)
+					return fetchCover(url, key)
 				})
+			} else {
+				logger.Get().Debug("cover skip: track %s has no CoverURL (album %q)", cur.ID, cur.AlbumID)
 			}
 		}
 	}
@@ -159,23 +170,31 @@ func (m *NowPlayingModel) refreshTrackCmd() tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-func fetchCover(url, albumID string) tea.Msg {
+func fetchCover(url, key string) tea.Msg {
 	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Get(url)
 	if err != nil {
-		return coverLoadedMsg{albumID: albumID}
+		logger.Get().Debug("cover fetch %s: %v", key, err)
+		return coverLoadedMsg{key: key}
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		logger.Get().Debug("cover fetch %s: HTTP %d", key, resp.StatusCode)
+		return coverLoadedMsg{key: key}
+	}
 	// Covers are small; cap the read defensively anyway.
 	data, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	if err != nil {
-		return coverLoadedMsg{albumID: albumID}
+		logger.Get().Debug("cover read %s: %v", key, err)
+		return coverLoadedMsg{key: key}
 	}
-	img, _, err := image.Decode(bytes.NewReader(data))
+	img, format, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
-		return coverLoadedMsg{albumID: albumID}
+		logger.Get().Debug("cover decode %s (%d bytes): %v", key, len(data), err)
+		return coverLoadedMsg{key: key}
 	}
-	return coverLoadedMsg{albumID: albumID, rendered: renderCoverArt(img, coverWCells, coverHCells)}
+	logger.Get().Debug("cover ok %s: %s %dx%d", key, format, img.Bounds().Dx(), img.Bounds().Dy())
+	return coverLoadedMsg{key: key, rendered: renderCoverArt(img, coverWCells, coverHCells)}
 }
 
 func (m NowPlayingModel) View() string {
