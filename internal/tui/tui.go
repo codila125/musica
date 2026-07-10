@@ -25,6 +25,7 @@ type Tab int
 const (
 	TabBrowse Tab = iota
 	TabSearch
+	TabLibrary
 	TabQueue
 	TabNowPlaying
 )
@@ -86,7 +87,7 @@ func NewModel(client api.Client, pl *player.Player, servers []config.ServerConfi
 		playback:      playback,
 		servers:       servers,
 		currentServer: currentServer,
-		tabs:          []string{"BROWSE", "SEARCH", "QUEUE", "PLAYING"},
+		tabs:          []string{"BROWSE", "SEARCH", "LIBRARY", "QUEUE", "PLAYING"},
 		views:         newViewAdapter(client, playback),
 		state:         stateBooting,
 		coordinator:   app.NewCoordinator(servers, nil),

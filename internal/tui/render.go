@@ -345,6 +345,16 @@ func (m Model) renderHelp(w, h int) string {
 			footerStyle.Render("  [q]            Add to queue"),
 			footerStyle.Render("  [←/→] or [l/r]  Switch category (Tracks/Albums/Artists)"),
 		)
+	case TabLibrary:
+		lines = append(lines,
+			helpSectionStyle.Render("  ─── MUSIC LIBRARY ───"),
+			footerStyle.Render("  [j/k] or [↓/↑]  Navigate up/down"),
+			footerStyle.Render("  [enter] or [l]  Open artist/album"),
+			footerStyle.Render("  [esc] or [h]   Back up a level"),
+			footerStyle.Render("  [p]            Play track"),
+			footerStyle.Render("  [q]            Add to queue"),
+			footerStyle.Render("  [ctrl+r]       Reload level"),
+		)
 	case TabQueue:
 		lines = append(lines,
 			helpSectionStyle.Render("  ─── TAPE QUEUE ───"),
