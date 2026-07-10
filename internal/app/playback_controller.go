@@ -100,6 +100,14 @@ func (c *PlaybackController) Queue() []models.Track {
 	return c.player.Queue()
 }
 
+func (c *PlaybackController) RemoveQueueTrack(idx int) error {
+	return c.player.RemoveFromQueue(idx)
+}
+
+func (c *PlaybackController) ClearQueue() {
+	c.player.ClearQueue()
+}
+
 func (c *PlaybackController) CurrentIndex() int {
 	return c.player.CurrentIndex()
 }

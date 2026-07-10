@@ -159,8 +159,30 @@ func (f *fakePlayerService) CurrentTrack() *models.Track {
 func (f *fakePlayerService) State() models.PlayerState { return f.state }
 func (f *fakePlayerService) Queue() []models.Track     { return append([]models.Track(nil), f.queue...) }
 func (f *fakePlayerService) CurrentIndex() int         { return f.current }
-func (f *fakePlayerService) Position() (int, error)    { return 0, nil }
-func (f *fakePlayerService) Duration() (int, error)    { return 0, nil }
+func (f *fakePlayerService) RemoveQueueTrack(idx int) error {
+	if idx < 0 || idx >= len(f.queue) {
+		return nil
+	}
+	if idx == f.current && f.state != models.StateStopped {
+		return nil
+	}
+	f.queue = append(f.queue[:idx], f.queue[idx+1:]...)
+	if idx < f.current {
+		f.current--
+	}
+	return nil
+}
+func (f *fakePlayerService) ClearQueue() {
+	if f.state == models.StateStopped || f.current < 0 || f.current >= len(f.queue) {
+		f.queue = nil
+		f.current = 0
+		return
+	}
+	f.queue = []models.Track{f.queue[f.current]}
+	f.current = 0
+}
+func (f *fakePlayerService) Position() (int, error) { return 0, nil }
+func (f *fakePlayerService) Duration() (int, error) { return 0, nil }
 func (f *fakePlayerService) AppendToQueue(track models.Track) error {
 	if len(f.queue) > 0 && f.current >= 0 && f.current < len(f.queue) {
 		insertIdx := f.current + 1

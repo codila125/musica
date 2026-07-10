@@ -53,6 +53,11 @@ func (m QueueModel) Update(msg tea.Msg) (QueueModel, tea.Cmd) {
 			_ = m.playback.Previous()
 		case "r":
 			_ = m.playback.Replay()
+		case "d", "x":
+			_ = m.playback.RemoveQueueTrack(m.cursor)
+		case "c":
+			m.playback.ClearQueue()
+			m.cursor = 0
 		}
 	}
 

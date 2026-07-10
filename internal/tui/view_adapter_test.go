@@ -59,6 +59,8 @@ func (a adapterFakePlayback) Queue() []models.Track               { return nil }
 func (a adapterFakePlayback) CurrentIndex() int                   { return 0 }
 func (a adapterFakePlayback) Position() (int, error)              { return 0, nil }
 func (a adapterFakePlayback) Duration() (int, error)              { return 0, nil }
+func (a adapterFakePlayback) RemoveQueueTrack(idx int) error      { return nil }
+func (a adapterFakePlayback) ClearQueue()                         {}
 
 func TestViewAdapterLifecycle(t *testing.T) {
 	v := newViewAdapter(adapterFakeClient{}, adapterFakePlayback{})

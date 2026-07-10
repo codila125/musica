@@ -346,6 +346,8 @@ func (m Model) renderHelp(w, h int) string {
 			helpSectionStyle.Render("  ─── TAPE QUEUE ───"),
 			footerStyle.Render("  [j/k] or [↓/↑]  Navigate up/down"),
 			footerStyle.Render("  [p] or [enter]  Play/pause track"),
+			footerStyle.Render("  [d] or [x]     Remove track"),
+			footerStyle.Render("  [c]            Clear queue (keeps playing track)"),
 		)
 	}
 
