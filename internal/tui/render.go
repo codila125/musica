@@ -355,6 +355,13 @@ func (m Model) renderHelp(w, h int) string {
 			footerStyle.Render("  [s]            Shuffle upcoming tracks"),
 			footerStyle.Render("  [t]            Cycle repeat (off/all/one)"),
 		)
+	case TabNowPlaying:
+		lines = append(lines,
+			helpSectionStyle.Render("  ─── NOW PLAYING ───"),
+			footerStyle.Render("  Album cover, track info and synced lyrics"),
+			footerStyle.Render("  [,/.]        Seek -/+ 10s"),
+			footerStyle.Render("  [n/m]        Next/previous track"),
+		)
 	}
 
 	lines = append(lines, "", footerStyle.Render("  Press [ctrl+h] to close"))

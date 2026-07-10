@@ -15,6 +15,7 @@ import (
 	"github.com/codila125/musica/internal/models"
 	"github.com/codila125/musica/internal/player"
 	"github.com/codila125/musica/internal/telemetry"
+	"github.com/codila125/musica/internal/tui/views"
 )
 
 type API = api.Client
@@ -25,6 +26,7 @@ const (
 	TabBrowse Tab = iota
 	TabSearch
 	TabQueue
+	TabNowPlaying
 )
 
 type Model struct {
@@ -77,7 +79,7 @@ func NewModel(client api.Client, pl *player.Player, servers []config.ServerConfi
 		playback:      playback,
 		servers:       servers,
 		currentServer: currentServer,
-		tabs:          []string{"BROWSE", "SEARCH", "QUEUE"},
+		tabs:          []string{"BROWSE", "SEARCH", "QUEUE", "PLAYING"},
 		views:         newViewAdapter(client, playback),
 		state:         stateBooting,
 		coordinator:   app.NewCoordinator(servers, nil),
@@ -150,6 +152,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.duration = dur
 			}
 		}
+		// Feed position into child views (NOW PLAYING lyrics sync) without
+		// them polling mpv on their own.
+		progressCmd := m.views.UpdateAll(views.ProgressMsg{
+			PositionMs: m.displayPosition() * 1000,
+			DurationS:  m.duration,
+		})
 		// Scrobble on track change here so every start path (manual play,
 		// next/previous, auto-advance at track end) is covered by one spot.
 		if track := m.playback.CurrentTrack(); track != nil && track.ID != m.lastScrobbledID {
@@ -162,7 +170,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}(m.apiClient, track.ID)
 		}
-		return m, uiTickCmd(tickIntervalFor(state))
+		return m, tea.Batch(uiTickCmd(tickIntervalFor(state)), progressCmd)
 
 	case tea.KeyMsg:
 		searchTyping := m.activeTab == TabSearch && m.views.SearchIsInInputMode()
