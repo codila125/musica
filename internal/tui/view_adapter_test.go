@@ -38,8 +38,9 @@ func (f adapterFakeClient) Search(ctx context.Context, query string) (models.Sea
 func (f adapterFakeClient) StreamTrack(ctx context.Context, trackID string) (io.ReadCloser, error) {
 	return nil, nil
 }
-func (f adapterFakeClient) GetStreamURL(trackID string) string { return "" }
-func (f adapterFakeClient) GetCoverURL(albumID string) string  { return "" }
+func (f adapterFakeClient) GetStreamURL(trackID string) string                 { return "" }
+func (f adapterFakeClient) Scrobble(ctx context.Context, trackID string) error { return nil }
+func (f adapterFakeClient) GetCoverURL(albumID string) string                  { return "" }
 
 type adapterFakePlayback struct{}
 

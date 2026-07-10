@@ -41,6 +41,7 @@ type Model struct {
 	barFrame         int
 	shineOffset      int
 	lastProgressPoll time.Time
+	lastScrobbledID  string
 	tabs             []string
 	activeTab        Tab
 	views            viewAdapter
@@ -148,6 +149,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.duration = dur
 			}
+		}
+		// Scrobble on track change here so every start path (manual play,
+		// next/previous, auto-advance at track end) is covered by one spot.
+		if track := m.playback.CurrentTrack(); track != nil && track.ID != m.lastScrobbledID {
+			m.lastScrobbledID = track.ID
+			go func(client api.Client, id string) {
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				if err := client.Scrobble(ctx, id); err != nil {
+					logger.Get().Debug("scrobble %s failed: %v", id, err)
+				}
+			}(m.apiClient, track.ID)
 		}
 		return m, uiTickCmd(tickIntervalFor(state))
 

@@ -18,6 +18,7 @@ type Client interface {
 	GetPlaylistTracks(ctx context.Context, playlistID string) ([]models.Track, error)
 	Search(ctx context.Context, query string) (models.SearchResult, error)
 	StreamTrack(ctx context.Context, trackID string) (io.ReadCloser, error)
+	Scrobble(ctx context.Context, trackID string) error
 	GetStreamURL(trackID string) string
 	GetCoverURL(albumID string) string
 }

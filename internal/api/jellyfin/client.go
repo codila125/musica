@@ -157,6 +157,28 @@ func (c *Client) Ping(ctx context.Context) error {
 	return err
 }
 
+func (c *Client) Scrobble(ctx context.Context, trackID string) error {
+	u := fmt.Sprintf("%s/Users/%s/PlayedItems/%s", c.baseURL, c.userID, trackID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, nil)
+	if err != nil {
+		return err
+	}
+	req.Header = c.authHeader()
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return api.Wrap(api.ErrorKindNetwork, "scrobble", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+		return api.Wrap(api.ErrorKindNetwork, "scrobble", fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body)))
+	}
+	return nil
+}
+
 func (c *Client) StreamTrack(ctx context.Context, trackID string) (io.ReadCloser, error) {
 	u := c.baseURL + fmt.Sprintf("/Items/%s/Download?api_key=%s", trackID, c.apiKey)
 

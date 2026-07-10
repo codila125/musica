@@ -47,8 +47,9 @@ func (f fakeAPIClient) Search(ctx context.Context, query string) (models.SearchR
 func (f fakeAPIClient) StreamTrack(ctx context.Context, trackID string) (io.ReadCloser, error) {
 	return nil, nil
 }
-func (f fakeAPIClient) GetStreamURL(trackID string) string { return "" }
-func (f fakeAPIClient) GetCoverURL(albumID string) string  { return "" }
+func (f fakeAPIClient) GetStreamURL(trackID string) string                 { return "" }
+func (f fakeAPIClient) Scrobble(ctx context.Context, trackID string) error { return nil }
+func (f fakeAPIClient) GetCoverURL(albumID string) string                  { return "" }
 
 type fakePlayerService struct {
 	state    models.PlayerState

@@ -92,6 +92,19 @@ func (c *Client) doRequest(ctx context.Context, endpoint string, params url.Valu
 	return json.Unmarshal(wrapper.SubsonicResponse, v)
 }
 
+func (c *Client) Scrobble(ctx context.Context, trackID string) error {
+	params := c.authParams()
+	params.Set("id", trackID)
+	params.Set("submission", "true")
+	var resp struct {
+		Status string `json:"status"`
+	}
+	if err := c.doRequest(ctx, "scrobble", params, &resp); err != nil {
+		return api.Wrap(api.ErrorKindNetwork, "scrobble", err)
+	}
+	return nil
+}
+
 func (c *Client) StreamTrack(ctx context.Context, trackID string) (io.ReadCloser, error) {
 	u, err := url.Parse(c.baseURL + "/rest/stream")
 	if err != nil {
