@@ -98,7 +98,7 @@ func TestLibraryDrillsDownToTracksAndPlays(t *testing.T) {
 	m, cmd = m.Update(keyMsg("j"))
 	m = drainLibrary(t, m, cmd)
 	m, cmd = m.Update(keyMsg("p"))
-	m = drainLibrary(t, m, cmd)
+	_ = drainLibrary(t, m, cmd)
 	if cur := pl.CurrentTrack(); cur == nil || cur.ID != "t2" {
 		t.Fatalf("current = %v, want t2", cur)
 	}
@@ -126,7 +126,7 @@ func TestLibraryQueuesTrack(t *testing.T) {
 	m, cmd = m.Update(keyMsg("l"))
 	m = drainLibrary(t, m, cmd)
 	m, cmd = m.Update(keyMsg("q"))
-	m = drainLibrary(t, m, cmd)
+	_ = drainLibrary(t, m, cmd)
 
 	q := pl.Queue()
 	if len(q) != 1 || q[0].ID != "t1" {

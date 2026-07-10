@@ -124,7 +124,7 @@ func TestNowPlayingFetchesLyricsOncePerTrack(t *testing.T) {
 	m, cmd = m.Update(ProgressMsg{PositionMs: 0, DurationS: 300})
 	m, _ = drainCmd(m, cmd)
 	m, cmd = m.Update(ProgressMsg{PositionMs: 1000, DurationS: 300})
-	m, _ = drainCmd(m, cmd)
+	_, _ = drainCmd(m, cmd)
 
 	if client.calls != 1 {
 		t.Fatalf("GetLyrics calls = %d, want 1", client.calls)
