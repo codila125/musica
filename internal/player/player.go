@@ -40,12 +40,19 @@ func New() (*Player, error) {
 	m.SetOptionString("audio-display", "no")
 	m.SetOptionString("terminal", "no")
 	m.SetOptionString("quiet", "yes")
+	// Let the OS media keys (macOS play/pause, F8) drive mpv directly.
+	m.SetOptionString("input-media-keys", "yes")
 
 	if err := m.Initialize(); err != nil {
 		return nil, fmt.Errorf("initialize mpv: %w", err)
 	}
 
 	m.RequestEvent(mpv.EventEnd, true)
+	// Media keys toggle mpv's pause internally; observe it so Player.state
+	// (and therefore the UI) follows external changes.
+	if err := m.ObserveProperty(0, "pause", mpv.FormatFlag); err != nil {
+		logger.Get().Error("observe pause property: %v", err)
+	}
 
 	p := &Player{
 		mpv:    m,
@@ -81,6 +88,15 @@ func (p *Player) eventLoop() {
 		if ev.EventID == mpv.EventShutdown {
 			return
 		}
+		if ev.EventID == mpv.EventPropertyChange {
+			prop := ev.Property()
+			if prop.Name == "pause" && prop.Format == mpv.FormatFlag {
+				paused, ok := prop.Data.(int)
+				if ok {
+					p.syncPauseState(paused != 0)
+				}
+			}
+		}
 		if ev.EventID == mpv.EventEnd {
 			endFile := ev.EndFile()
 			if endFile.Error != nil {
@@ -93,6 +109,22 @@ func (p *Player) eventLoop() {
 				}
 			}
 		}
+	}
+}
+
+// syncPauseState reconciles Player.state with mpv's pause property after
+// an external toggle (e.g. macOS media keys). Changes we made ourselves
+// already match and fall through as no-ops.
+func (p *Player) syncPauseState(paused bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	switch {
+	case paused && p.state == models.StatePlaying:
+		p.state = models.StatePaused
+	case !paused && p.state == models.StatePaused:
+		p.state = models.StatePlaying
+		p.pausedPos = 0
 	}
 }
 
