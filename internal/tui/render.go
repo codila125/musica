@@ -311,6 +311,8 @@ func (m Model) renderHelp(w, h int) string {
 		footerStyle.Render("  [r]          Replay current track"),
 		footerStyle.Render("  [n]          Next track"),
 		footerStyle.Render("  [m]          Previous track"),
+		footerStyle.Render("  [,/.]        Seek -/+ 10s"),
+		footerStyle.Render("  [-/=]        Volume down/up"),
 		footerStyle.Render("  [ctrl+q]     Quit application"),
 		"",
 		helpTitleStyle.Render(" ◎ TAB SPECIFIC "),

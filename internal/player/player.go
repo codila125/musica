@@ -320,6 +320,12 @@ func (p *Player) SetVolume(vol int) {
 	p.mpv.SetPropertyString("volume", fmt.Sprintf("%d", vol))
 }
 
+func (p *Player) Volume() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.volume
+}
+
 func (p *Player) Seek(seconds int) error {
 	if p.closing.Load() {
 		return errPlayerClosing

@@ -152,7 +152,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, uiTickCmd(tickIntervalFor(state))
 
 	case tea.KeyMsg:
+		searchTyping := m.activeTab == TabSearch && m.views.SearchIsInInputMode()
 		switch {
+		case key.Matches(msg, key.NewBinding(key.WithKeys(",", "."))) && !searchTyping:
+			delta := 10
+			if msg.String() == "," {
+				delta = -10
+			}
+			if err := m.playback.SeekBy(delta); err == nil {
+				// Reflect the jump immediately instead of waiting for the poll.
+				m.lastProgressPoll = time.Time{}
+			}
+			return m, nil
+		case key.Matches(msg, key.NewBinding(key.WithKeys("-", "=", "+"))) && !searchTyping:
+			delta := 5
+			if msg.String() == "-" {
+				delta = -5
+			}
+			v := m.playback.VolumeBy(delta)
+			m.status = fmt.Sprintf("Volume %d%%", v)
+			return m, nil
 		case key.Matches(msg, key.NewBinding(key.WithKeys("ctrl+s"))):
 			if m.activeTab == TabSearch && m.views.SearchIsInInputMode() {
 				break

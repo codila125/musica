@@ -11,19 +11,22 @@ import (
 )
 
 type Player struct {
-	queue   []models.Track
-	current int
-	state   models.PlayerState
-	mu      sync.Mutex
-	done    chan struct{}
-	ended   chan struct{}
+	queue    []models.Track
+	current  int
+	state    models.PlayerState
+	position int
+	volume   int
+	mu       sync.Mutex
+	done     chan struct{}
+	ended    chan struct{}
 }
 
 func New() (*Player, error) {
 	return &Player{
-		state: models.StateStopped,
-		done:  make(chan struct{}),
-		ended: make(chan struct{}, 1),
+		state:  models.StateStopped,
+		volume: 100,
+		done:   make(chan struct{}),
+		ended:  make(chan struct{}, 1),
 	}, nil
 }
 
@@ -89,12 +92,51 @@ func (p *Player) Stop() error {
 	return nil
 }
 
-func (p *Player) Next() error            { return nil }
-func (p *Player) Previous() error        { return nil }
-func (p *Player) SetVolume(vol int)      {}
-func (p *Player) Seek(seconds int) error { return nil }
-func (p *Player) Position() (int, error) { return 0, nil }
-func (p *Player) Duration() (int, error) { return 0, nil }
+func (p *Player) Next() error     { return nil }
+func (p *Player) Previous() error { return nil }
+
+func (p *Player) SetVolume(vol int) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if vol < 0 {
+		vol = 0
+	}
+	if vol > 100 {
+		vol = 100
+	}
+	p.volume = vol
+}
+
+func (p *Player) Volume() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.volume
+}
+
+func (p *Player) Seek(seconds int) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if seconds < 0 {
+		seconds = 0
+	}
+	p.position = seconds
+	return nil
+}
+
+func (p *Player) Position() (int, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.position, nil
+}
+
+func (p *Player) Duration() (int, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.current >= 0 && p.current < len(p.queue) {
+		return p.queue[p.current].Duration, nil
+	}
+	return 0, nil
+}
 
 func (p *Player) CurrentTrack() *models.Track {
 	p.mu.Lock()

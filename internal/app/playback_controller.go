@@ -108,6 +108,36 @@ func (c *PlaybackController) Position() (int, error) {
 	return c.player.Position()
 }
 
+// SeekBy moves playback position by delta seconds, clamped at track start.
+func (c *PlaybackController) SeekBy(delta int) error {
+	pos, err := c.player.Position()
+	if err != nil {
+		return err
+	}
+	target := pos + delta
+	if target < 0 {
+		target = 0
+	}
+	return c.player.Seek(target)
+}
+
+// VolumeBy adjusts volume by delta and returns the resulting level (0-100).
+func (c *PlaybackController) VolumeBy(delta int) int {
+	v := c.player.Volume() + delta
+	if v < 0 {
+		v = 0
+	}
+	if v > 100 {
+		v = 100
+	}
+	c.player.SetVolume(v)
+	return v
+}
+
+func (c *PlaybackController) Volume() int {
+	return c.player.Volume()
+}
+
 func (c *PlaybackController) Duration() (int, error) {
 	return c.player.Duration()
 }
