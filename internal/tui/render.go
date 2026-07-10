@@ -244,13 +244,7 @@ func (m Model) renderFooter(w int) string {
 		progress := ""
 		if m.playback.State() == models.StatePlaying || m.playback.State() == models.StatePaused {
 			if m.progressErr == nil {
-				displayPos := m.position
-				if m.playback.State() == models.StatePlaying && !m.positionAt.IsZero() {
-					displayPos += int(time.Since(m.positionAt).Seconds())
-				}
-				if m.duration > 0 && displayPos > m.duration {
-					displayPos = m.duration
-				}
+				displayPos := m.displayPosition()
 				if m.duration > 0 {
 					progress = fmt.Sprintf(" %s/%s", views.FormatDuration(displayPos), views.FormatDuration(m.duration))
 				} else {
@@ -277,6 +271,11 @@ func (m Model) renderFooter(w int) string {
 
 	lines := []string{line, infoLine}
 	if track := m.playback.CurrentTrack(); track != nil {
+		if m.progressErr == nil && m.duration > 0 {
+			bar := renderProgressBar(m.displayPosition(), m.duration, w-4)
+			barStyle := lipgloss.NewStyle().Foreground(colorAmber)
+			lines = append(lines, lipgloss.NewStyle().Width(w).Align(lipgloss.Center).Render(barStyle.Render(bar)))
+		}
 		if m.playback.State() == models.StatePlaying {
 			bars := m.renderSoundBars(w)
 			lines = append(lines, bars)
@@ -353,6 +352,36 @@ func (m Model) renderHelp(w, h int) string {
 	lines = append(lines, "", footerStyle.Render("  Press [ctrl+h] to close"))
 
 	return helpBox.Render(strings.Join(lines, "\n"))
+}
+
+// displayPosition interpolates the last polled position forward while
+// playing so the UI stays smooth between 1s mpv polls.
+func (m Model) displayPosition() int {
+	displayPos := m.position
+	if m.playback.State() == models.StatePlaying && !m.positionAt.IsZero() {
+		displayPos += int(time.Since(m.positionAt).Seconds())
+	}
+	if m.duration > 0 && displayPos > m.duration {
+		displayPos = m.duration
+	}
+	return displayPos
+}
+
+func renderProgressBar(pos, dur, w int) string {
+	if w <= 0 {
+		return ""
+	}
+	filled := 0
+	if dur > 0 {
+		filled = pos * w / dur
+		if filled > w {
+			filled = w
+		}
+		if filled < 0 {
+			filled = 0
+		}
+	}
+	return strings.Repeat("█", filled) + strings.Repeat("░", w-filled)
 }
 
 func (m Model) renderSoundBars(w int) string {
