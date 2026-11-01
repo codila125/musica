@@ -21,7 +21,7 @@ Built for Navidrome and Jellyfin. Tuned for speed. Designed to feel like hardwar
 ## Install (Homebrew)
 
 ```bash
-brew tap codile125/tap
+brew tap codila125/tap
 brew install musica
 ```
 
@@ -44,7 +44,7 @@ Uninstall:
 
 ```bash
 brew uninstall musica
-brew untap codile125/tap
+brew untap codila125/tap
 ```
 
 ## First-time setup
